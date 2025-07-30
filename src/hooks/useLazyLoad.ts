@@ -7,7 +7,7 @@ interface UseLazyLoadOptions {
 }
 
 interface UseLazyLoadReturn {
-  ref: React.RefObject<HTMLElement>;
+  ref: React.RefObject<HTMLDivElement>;
   isVisible: boolean;
   hasLoaded: boolean;
 }
@@ -38,7 +38,7 @@ export const useLazyLoad = (options: UseLazyLoadOptions = {}): UseLazyLoadReturn
 
   const [isVisible, setIsVisible] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const ref = useRef<HTMLElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   const handleIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
     const [entry] = entries;
@@ -117,7 +117,7 @@ export const useLazyImage = (src: string, options: UseLazyLoadOptions = {}) => {
 /**
  * Hook pour le lazy loading des composants React
  */
-export const useLazyComponent = <T extends HTMLElement>(
+export const useLazyComponent = <T extends HTMLDivElement>(
   options: UseLazyLoadOptions = {}
 ) => {
   const [shouldRender, setShouldRender] = useState(false);
