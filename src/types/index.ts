@@ -173,7 +173,7 @@ export interface BaseInputProps {
 }
 
 export interface InputProps extends BaseInputProps, Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
-  type?: 'text' | 'email' | 'tel' | 'number' | 'date';
+  type?: 'text' | 'email' | 'tel' | 'number' | 'date' | 'password';
   onChange?: React.ChangeEventHandler<HTMLInputElement>;
 }
 
