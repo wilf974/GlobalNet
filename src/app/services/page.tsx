@@ -100,37 +100,43 @@ const options = [
     id: 'nettoyageVitres',
     title: 'Nettoyage des Vitres',
     description: 'Nettoyage intérieur et extérieur des vitres et baies vitrées',
-    icon: Sparkles
+    icon: Sparkles,
+    price: 'À partir de 2,50€/m²'
   },
   {
     id: 'desinfection',
     title: 'Désinfection',
     description: 'Traitement désinfectant des surfaces et zones sensibles',
-    icon: CheckCircle
+    icon: CheckCircle,
+    price: 'À partir de 1,80€/m²'
   },
   {
     id: 'nettoyageFacades',
     title: 'Nettoyage des Façades',
     description: 'Nettoyage professionnel des façades extérieures',
-    icon: Building2
+    icon: Building2,
+    price: 'À partir de 3,50€/m²'
   },
   {
     id: 'nettoyageParking',
     title: 'Nettoyage du Parking',
     description: 'Entretien des zones de stationnement et accès',
-    icon: MapPin
+    icon: MapPin,
+    price: 'À partir de 1,20€/m²'
   },
   {
     id: 'nettoyageCarpettes',
     title: 'Nettoyage des Carpettes',
     description: 'Nettoyage professionnel des moquettes et tapis',
-    icon: Sparkles
+    icon: Sparkles,
+    price: 'À partir de 4,50€/m²'
   },
   {
     id: 'traitementAntiCalcaire',
     title: 'Traitement Anti-Calcaire',
     description: 'Traitement préventif anti-calcaire des surfaces',
-    icon: CheckCircle
+    icon: CheckCircle,
+    price: 'À partir de 2,80€/m²'
   }
 ];
 
