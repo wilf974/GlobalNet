@@ -15,7 +15,11 @@ import {
 
 import { APP_CONFIG } from '@/utils/constants';
 
-const Footer: React.FC = () => {
+interface FooterProps {
+  id?: string;
+}
+
+const Footer: React.FC<FooterProps> = ({ id }) => {
   const currentYear = new Date().getFullYear();
 
   const footerLinks = {
@@ -47,7 +51,7 @@ const Footer: React.FC = () => {
   ];
 
   return (
-    <footer className="bg-gray-900 text-white">
+    <footer id={id} className="bg-gray-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Informations de Contact */}
