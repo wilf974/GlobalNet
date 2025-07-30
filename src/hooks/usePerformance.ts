@@ -87,9 +87,9 @@ export const usePerformance = () => {
 
     const observer = new PerformanceObserver((list) => {
       const entries = list.getEntries();
-      const fidEntry = entries[0];
+      const fidEntry = entries[0] as PerformanceEventTiming;
       
-      if (fidEntry) {
+      if (fidEntry && 'processingStart' in fidEntry) {
         setMetrics(prev => ({ ...prev, fid: fidEntry.processingStart - fidEntry.startTime }));
         observer.disconnect();
       }
