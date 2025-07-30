@@ -243,7 +243,8 @@ Pour toute question ou problème :
 7. **Prix** : Calculs détaillés avec TVA et sous-totaux
 8. **Modalités de paiement** : Acompte, solde, moyens de paiement
 9. **Garanties** : Satisfaction, assurance, personnel qualifié
-10. **Conditions** : Termes et conditions étendues
-11. **Accord et signature** : Zones de signature client et entreprise
-12. **Mentions légales** : SIRET, TVA, assurance, RGPD
-13. **Pied de page** : Contact et site web 
+10. **Conditions contractuelles** : Objet, durée, obligations, responsabilités, litiges
+11. **Conditions** : Termes et conditions étendues
+12. **Accord et signature** : Zones de signature client et entreprise
+13. **Mentions légales** : SIRET, TVA, assurance, RGPD
+14. **Pied de page** : Contact et site web 

@@ -206,6 +206,116 @@ export class PdfGenerator {
 
       yPosition += 20;
 
+      // Conditions contractuelles
+      this.drawSectionHeader(pdf, 'CONDITIONS CONTRACTUELLES', margin, yPosition, primaryColor);
+      yPosition += 15;
+      
+      // Cadre pour les conditions contractuelles
+      pdf.setFillColor(...lightGray);
+      pdf.roundedRect(margin, yPosition, pageWidth - 2 * margin, 80, 3, 3, 'F');
+      
+      pdf.setTextColor(...secondaryColor);
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('1. OBJET DU CONTRAT', margin + 10, yPosition + 8);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.text('Le présent devis engage GlobalNet Services à réaliser les prestations de nettoyage', margin + 10, yPosition + 16);
+      pdf.text('décrites dans ce document selon les modalités définies.', margin + 10, yPosition + 24);
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('2. DURÉE ET RÉSILIATION', margin + 10, yPosition + 36);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('• Contrat à durée déterminée selon la fréquence choisie', margin + 10, yPosition + 44);
+      pdf.text('• Résiliation possible avec préavis de 30 jours par lettre recommandée', margin + 10, yPosition + 52);
+      pdf.text('• En cas de manquement grave, résiliation immédiate possible', margin + 10, yPosition + 60);
+      pdf.text('• Suspension temporaire possible en cas de force majeure', margin + 10, yPosition + 68);
+
+      yPosition += 90;
+
+      // Obligations des parties
+      pdf.setTextColor(...secondaryColor);
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('3. OBLIGATIONS DES PARTIES', margin, yPosition);
+      yPosition += 8;
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+      pdf.text('Obligations de GlobalNet Services :', margin, yPosition);
+      yPosition += 6;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.text('• Respecter les horaires d\'intervention convenus', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Utiliser des produits conformes aux normes en vigueur', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Former et encadrer le personnel d\'intervention', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Respecter les consignes de sécurité et d\'hygiène', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Assurer la confidentialité des informations', margin, yPosition);
+      
+      yPosition += 12;
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+      pdf.text('Obligations du Client :', margin, yPosition);
+      yPosition += 6;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.text('• Faciliter l\'accès aux locaux aux heures convenues', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Signaler tout changement d\'organisation ou de consignes', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Respecter les modalités de paiement définies', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Informer de tout incident ou problème constaté', margin, yPosition);
+
+      yPosition += 20;
+
+      // Responsabilités et assurances
+      pdf.setTextColor(...secondaryColor);
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('4. RESPONSABILITÉS ET ASSURANCES', margin, yPosition);
+      yPosition += 8;
+      
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.text('• GlobalNet Services dispose d\'une assurance responsabilité civile professionnelle', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Couverture : 2 000 000 € par sinistre et par année civile', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Garantie décennale pour les travaux de nettoyage de façades', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Responsabilité limitée aux dommages directs prouvés', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Exclusion : cas de force majeure et faute du client', margin, yPosition);
+
+      yPosition += 20;
+
+      // Litiges et droit applicable
+      pdf.setTextColor(...secondaryColor);
+      pdf.setFontSize(11);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('5. LITIGES ET DROIT APPLICABLE', margin, yPosition);
+      yPosition += 8;
+      
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.text('• En cas de litige, les parties s\'engagent à rechercher une solution amiable', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Médiation obligatoire avant toute action en justice', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Tribunal compétent : Tribunal de Commerce de Paris', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Droit applicable : Code civil français et Code de commerce', margin, yPosition);
+      yPosition += 6;
+      pdf.text('• Les conditions générales de vente complètent ce devis', margin, yPosition);
+
+      yPosition += 20;
+
       // Conditions en pied de page améliorées
       pdf.setTextColor(...secondaryColor);
       pdf.setFontSize(14);

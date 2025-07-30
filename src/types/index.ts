@@ -164,11 +164,9 @@ export interface ButtonProps {
 
 export interface BaseInputProps {
   label?: string;
-  name: string;
   placeholder?: string;
   required?: boolean;
   error?: string;
-  value?: string | number;
   className?: string;
 }
 

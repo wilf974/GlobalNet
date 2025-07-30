@@ -280,6 +280,7 @@ Ce document retrace l'évolution du développement de la plateforme web GlobalNe
 - **Calculs de prix détaillés** avec TVA, sous-totaux et prix individuels des options
 - **Modalités de paiement** avec acompte, solde et moyens de paiement
 - **Garanties professionnelles** (satisfaction, assurance, personnel qualifié)
+- **Conditions contractuelles** complètes (objet, durée, obligations, responsabilités, litiges)
 - **Zones de signature** client et entreprise avec accord
 - **Mentions légales** complètes (SIRET, TVA, assurance, RGPD)
 - **Mise en évidence du prix** avec couleur d'accent et tableau structuré
