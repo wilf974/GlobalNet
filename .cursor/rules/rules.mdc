@@ -1,0 +1,48 @@
+# Règles Générales de Développement pour Cursor
+
+## 1. Lecture et Contexte
+
+Avant toute action (création, modification ou suppression de fichiers), tu dois impérativement lire le fichier `historique.md` pour :
+
+- Comprendre le contexte du projet
+- Repérer les décisions passées
+- Identifier les zones déjà modifiées
+- Éviter toute redondance ou incohérence avec l'historique
+
+Après chaque action, mets à jour `historique.md` avec une entrée synthétique expliquant :
+- Ce qui a été modifié
+- Pourquoi cela a été fait
+- Le nom du fichier temporaire utilisé
+- La section concernée
+
+## 2. Travail Sécurisé via Fichier Temporaire
+
+⚠️ **Ne jamais modifier directement les fichiers du projet en production.**
+
+- Crée un duplicata du fichier à modifier avec le suffixe `.temp` (ex. `index.ts` → `index.temp.ts`)
+- Applique toutes les modifications sur ce fichier temporaire
+- Laisse l'utilisateur décider quand fusionner les changements dans le fichier original
+
+✅ Cela garantit une phase de validation manuelle et évite les erreurs irréversibles.
+
+## 3. Approche Progressive par Sections
+
+Tu dois modifier **une seule section à la fois** selon cette logique :
+
+- Identifier clairement la section (ex. : `// START auth`, `// END auth`)
+- Proposer un changement ciblé uniquement dans cette zone
+- Attendre une validation ou continuer par étape
+- Ne pas réécrire un fichier complet d’un coup, sauf demande explicite
+
+Rappel : priorise toujours la **lisibilité**, la **cohérence avec l’existant** et la **modularité**.
+
+## 4. Approche Progressive par Sections partie 2
+- Faire plusieurs itération lors de création de fichier
+
+---
+
+# Résumé Exécutif
+
+- Toujours lire `historique.md` avant et après toute action
+- Utiliser des fichiers `.temp` pour toute modification
+- Avancer bloc par bloc, section par section
