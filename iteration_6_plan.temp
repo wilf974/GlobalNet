@@ -1,0 +1,135 @@
+# Itération 6 - Phase 2 : Performance et Optimisations
+
+## 🎯 Objectifs de la Phase 2
+
+### Objectifs Principaux
+- Optimiser le bundle JavaScript avec code splitting
+- Améliorer les performances des images
+- Implémenter le lazy loading avancé
+- Optimiser les métriques Core Web Vitals
+- Ajouter des outils de monitoring de performance
+
+---
+
+## 📋 Plan d'Implémentation
+
+### 1. Bundle Analysis et Code Splitting
+
+#### Étapes :
+1. **Installation des outils** : webpack-bundle-analyzer, @next/bundle-analyzer
+2. **Analyse du bundle** : Identifier les gros modules
+3. **Code splitting** : Dynamic imports pour les composants lourds
+4. **Optimisation des imports** : Tree shaking et imports conditionnels
+
+#### Composants à optimiser :
+- QuoteForm (formulaire complexe)
+- Dashboard (gestion des devis)
+- Pages avec images (Services, About)
+- Composants d'authentification
+
+### 2. Optimisation des Images
+
+#### Étapes :
+1. **Composant OptimizedImage** : Améliorer avec placeholders
+2. **Lazy loading** : Intersection Observer pour les images
+3. **Formats optimisés** : WebP, AVIF avec fallbacks
+4. **Responsive images** : srcset et sizes
+
+#### Améliorations :
+- Placeholders avec blur
+- Progressive loading
+- Compression automatique
+- Cache des images
+
+### 3. Performance Monitoring
+
+#### Étapes :
+1. **Core Web Vitals** : Monitoring des métriques
+2. **Bundle analyzer** : Scripts de build
+3. **Performance budgets** : Limites de taille
+4. **Lighthouse CI** : Tests automatisés
+
+#### Métriques à surveiller :
+- First Contentful Paint (FCP)
+- Largest Contentful Paint (LCP)
+- First Input Delay (FID)
+- Cumulative Layout Shift (CLS)
+
+### 4. Lazy Loading Avancé
+
+#### Étapes :
+1. **Composants** : Suspense et lazy loading
+2. **Routes** : Dynamic imports pour les pages
+3. **Hooks** : Lazy loading des hooks personnalisés
+4. **Utilitaires** : Imports conditionnels
+
+#### Optimisations :
+- Preloading des routes critiques
+- Prefetching des routes probables
+- Chunk splitting intelligent
+- Cache des composants
+
+---
+
+## 🔧 Configuration Technique
+
+### Dépendances à Ajouter
+```json
+{
+  "devDependencies": {
+    "@next/bundle-analyzer": "^14.0.0",
+    "webpack-bundle-analyzer": "^4.10.0",
+    "lighthouse": "^11.0.0",
+    "@types/lighthouse": "^10.0.0"
+  }
+}
+```
+
+### Scripts à Ajouter
+```json
+{
+  "scripts": {
+    "analyze": "ANALYZE=true npm run build",
+    "lighthouse": "lighthouse http://localhost:3000 --output=html --output-path=./lighthouse-report.html",
+    "performance": "npm run build && npm run lighthouse"
+  }
+}
+```
+
+---
+
+## 📊 Métriques de Succès
+
+### Objectifs de Performance
+- **Bundle size** : < 500KB gzippé
+- **LCP** : < 2.5s
+- **FID** : < 100ms
+- **CLS** : < 0.1
+- **Lighthouse score** : > 90
+
+### Optimisations Attendues
+- **Code splitting** : Réduction de 30% du bundle initial
+- **Images** : Réduction de 50% de la taille des images
+- **Lazy loading** : Amélioration de 40% du temps de chargement
+- **Caching** : Réduction de 60% des requêtes réseau
+
+---
+
+## 🚀 Prochaines Étapes
+
+### Phase 3 : SEO et A11y
+1. **Meta tags dynamiques** : Optimisation SEO
+2. **Structured data** : JSON-LD pour les services
+3. **Accessibilité** : ARIA, navigation clavier
+4. **Tests A11y** : Automatisés
+
+### Phase 4 : Outils et Monitoring
+1. **ESLint/Prettier** : Configuration avancée
+2. **Husky** : Git hooks
+3. **Error tracking** : Sentry ou similaire
+4. **Analytics** : Google Analytics 4
+
+---
+
+*Plan créé le 30/07/2025*
+*Statut : Phase 1 Terminée ✅ - Phase 2 En cours* 

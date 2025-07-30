@@ -2,16 +2,19 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Phone, Mail } from 'lucide-react';
+import { Menu, X, Phone, Mail, User, LogOut } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { APP_CONFIG } from '@/utils/constants';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const Navigation: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   const navigationItems = [
     { name: 'Accueil', href: '/' },
     { name: 'Services', href: '/services' },
+    { name: 'À Propos', href: '/about' },
     { name: 'Devis', href: '/devis' },
     { name: 'Contact', href: '/contact' },
   ];
@@ -23,10 +26,10 @@ export const Navigation: React.FC = () => {
           {/* Logo */}
           <div className="flex-shrink-0">
             <a href="/" className="flex items-center">
-                             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mr-2">
-                 <span className="text-white font-bold text-sm">GN</span>
-               </div>
-                             <span className="text-xl font-bold text-gray-900">GlobalNet</span>
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mr-2">
+                <span className="text-white font-bold text-sm">GN</span>
+              </div>
+              <span className="text-xl font-bold text-gray-900">GlobalNet</span>
             </a>
           </div>
 
@@ -49,6 +52,29 @@ export const Navigation: React.FC = () => {
               <Phone size={16} />
               <span>{APP_CONFIG.contact.telephone}</span>
             </div>
+            {user ? (
+              <div className="flex items-center space-x-2">
+                <Button size="sm" onClick={() => window.location.href = '/dashboard'}>
+                  <User size={16} className="mr-1" />
+                  Dashboard
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    logout();
+                    window.location.href = '/';
+                  }}
+                >
+                  <LogOut size={16} className="mr-1" />
+                  Déconnexion
+                </Button>
+              </div>
+            ) : (
+              <Button size="sm" onClick={() => window.location.href = '/auth'}>
+                Connexion
+              </Button>
+            )}
             <Button size="sm" onClick={() => window.location.href = '/devis'}>
               Devis Gratuit
             </Button>
@@ -97,8 +123,44 @@ export const Navigation: React.FC = () => {
                   <Mail size={16} />
                   <span>{APP_CONFIG.contact.email}</span>
                 </div>
+                {user ? (
+                  <div className="space-y-2">
+                    <Button 
+                      className="w-full" 
+                      onClick={() => {
+                        window.location.href = '/dashboard';
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      <User size={16} className="mr-1" />
+                      Dashboard
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      className="w-full" 
+                      onClick={() => {
+                        logout();
+                        window.location.href = '/';
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      <LogOut size={16} className="mr-1" />
+                      Déconnexion
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    className="w-full" 
+                    onClick={() => {
+                      window.location.href = '/auth';
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    Connexion
+                  </Button>
+                )}
                 <Button 
-                  className="w-full" 
+                  className="w-full mt-2" 
                   onClick={() => {
                     window.location.href = '/devis';
                     setIsMenuOpen(false);

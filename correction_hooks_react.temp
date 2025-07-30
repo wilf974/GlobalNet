@@ -1,0 +1,139 @@
+# Correction de l'Ordre des Hooks React - GlobalNet Services
+
+## 🐛 Problème Identifié
+
+### Symptômes
+- Erreur : "Rendered more hooks than during the previous render"
+- Warning : "React has detected a change in the order of Hooks called by DashboardPage"
+- Erreur : "Cannot update a component while rendering a different component"
+- Boucle infinie d'erreurs React
+
+### Cause Racine
+L'ordre des hooks React changeait entre les rendus car le `useEffect` était placé après des `return` conditionnels. Cela viole les règles des hooks React qui exigent que tous les hooks soient appelés dans le même ordre à chaque rendu.
+
+#### Problème dans le code :
+```typescript
+const DashboardPage = () => {
+  const { user, logout, isLoading } = useAuth(); // ✅ Hook 1
+  const [devis, setDevis] = useState(mockDevis); // ✅ Hook 2
+  const [searchTerm, setSearchTerm] = useState(''); // ✅ Hook 3
+  const [filterStatus, setFilterStatus] = useState('all'); // ✅ Hook 4
+
+  // ❌ PROBLÈME : return conditionnel avant useEffect
+  if (isLoading) {
+    return <Loader />; // useEffect n'est pas appelé !
+  }
+
+  // ❌ PROBLÈME : useEffect placé après return conditionnel
+  useEffect(() => {
+    // ...
+  }, [user, isLoading]); // Hook 5 - appelé seulement si pas isLoading
+};
+```
+
+---
+
+## ✅ Solution Appliquée
+
+### Page Dashboard (`src/app/dashboard/page.tsx`)
+
+#### Modifications Apportées :
+- **Déplacement du useEffect** : Placé immédiatement après tous les autres hooks
+- **Respect des règles des hooks** : Tous les hooks sont appelés dans le même ordre à chaque rendu
+- **Logique conditionnelle** : Les `return` conditionnels sont placés après tous les hooks
+
+#### Code Corrigé :
+```typescript
+const DashboardPage = () => {
+  const { user, logout, isLoading } = useAuth(); // ✅ Hook 1
+  const [devis, setDevis] = useState(mockDevis); // ✅ Hook 2
+  const [searchTerm, setSearchTerm] = useState(''); // ✅ Hook 3
+  const [filterStatus, setFilterStatus] = useState('all'); // ✅ Hook 4
+
+  // ✅ Hook 5 - TOUJOURS appelé
+  useEffect(() => {
+    if (!isLoading && !user) {
+      window.location.href = '/auth';
+    }
+  }, [user, isLoading]);
+
+  // ✅ Return conditionnels APRÈS tous les hooks
+  if (isLoading) {
+    return <Loader />;
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  // Reste du composant...
+};
+```
+
+---
+
+## 🎯 Résultat Attendu
+
+### Fonctionnalités Assurées :
+- ✅ Plus d'erreurs "Rendered more hooks than during the previous render"
+- ✅ Respect des règles des hooks React
+- ✅ Ordre constant des hooks à chaque rendu
+- ✅ Fonctionnalité de redirection maintenue
+- ✅ Loader approprié pendant le chargement
+
+### Flux d'Utilisateur Corrigé :
+1. **Chargement** : Tous les hooks sont appelés → Affichage du loader
+2. **Utilisateur connecté** : Dashboard s'affiche normalement
+3. **Utilisateur non connecté** : Redirection vers `/auth`
+4. **Navigation fluide** : Plus d'erreurs React
+
+---
+
+## 🔧 Test de Validation
+
+### Tests à Effectuer :
+1. **Test de chargement** :
+   - Rafraîchir la page dashboard
+   - Vérifier qu'il n'y a plus d'erreurs dans la console
+   - Vérifier l'affichage du loader
+
+2. **Test utilisateur connecté** :
+   - Se connecter avec un compte de test
+   - Accéder au dashboard
+   - Vérifier qu'il n'y a plus d'erreurs React
+
+3. **Test utilisateur non connecté** :
+   - Se déconnecter
+   - Essayer d'accéder au dashboard
+   - Vérifier la redirection vers `/auth`
+
+4. **Test de navigation** :
+   - Naviguer entre les pages
+   - Vérifier qu'il n'y a plus d'erreurs dans la console
+   - Tester les boutons Dashboard et Déconnexion
+
+---
+
+## 📝 Notes Techniques
+
+### Règles des Hooks React
+- **Ordre constant** : Les hooks doivent être appelés dans le même ordre à chaque rendu
+- **Pas de hooks conditionnels** : Ne pas appeler les hooks dans des conditions
+- **Pas de hooks dans les boucles** : Ne pas appeler les hooks dans des boucles
+- **Hooks au niveau supérieur** : Appeler les hooks seulement au niveau supérieur du composant
+
+### Ordre Correct des Hooks
+1. **useContext** : `useAuth()`
+2. **useState** : `useState(mockDevis)`, `useState('')`, `useState('all')`
+3. **useEffect** : `useEffect(() => {...}, [user, isLoading])`
+4. **Logique conditionnelle** : `if (isLoading)`, `if (!user)`
+
+### Prévention des Erreurs
+- **Tous les hooks d'abord** : Placer tous les hooks au début du composant
+- **Return conditionnels après** : Placer les `return` conditionnels après tous les hooks
+- **Ordre fixe** : Maintenir le même ordre d'appel des hooks
+
+---
+
+*Correction appliquée le 30/07/2025*
+*Statut : ✅ Résolu* 

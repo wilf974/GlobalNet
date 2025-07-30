@@ -31,6 +31,7 @@ export interface DevisData {
   dateModification: Date;
   signature?: string;
   cgvAcceptees: boolean;
+  commentaires?: string;
 }
 
 export interface Service {
@@ -161,17 +162,27 @@ export interface ButtonProps {
   className?: string;
 }
 
-export interface InputProps {
-  label: string;
+export interface BaseInputProps {
+  label?: string;
   name: string;
-  type?: 'text' | 'email' | 'tel' | 'number' | 'date' | 'textarea';
   placeholder?: string;
   required?: boolean;
   error?: string;
   value?: string | number;
-  onChange?: (value: string) => void;
   className?: string;
 }
+
+export interface InputProps extends BaseInputProps, Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+  type?: 'text' | 'email' | 'tel' | 'number' | 'date';
+  onChange?: React.ChangeEventHandler<HTMLInputElement>;
+}
+
+export interface TextareaProps extends BaseInputProps, Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
+  type?: 'textarea';
+  onChange?: React.ChangeEventHandler<HTMLTextAreaElement>;
+}
+
+export type InputComponentProps = InputProps | TextareaProps;
 
 export interface ModalProps {
   isOpen: boolean;

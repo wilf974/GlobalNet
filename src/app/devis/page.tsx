@@ -1,12 +1,7 @@
-import React from 'react';
-import { Metadata } from 'next';
-import { QuoteForm } from '@/components/forms/QuoteForm';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Demande de devis - Nettoyage professionnel',
-  description: 'Demandez un devis personnalisé pour vos services de nettoyage professionnel. Formulaire simple et rapide.',
-  keywords: 'devis, nettoyage, professionnel, demande, prix, estimation',
-};
+import React from 'react';
+import QuoteForm from '@/components/forms/QuoteForm';
 
 export default function DevisPage() {
   return (
