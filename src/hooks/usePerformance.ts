@@ -107,7 +107,7 @@ export const usePerformance = () => {
       const entries = list.getEntries();
       
       for (const entry of entries) {
-        const layoutShiftEntry = entry as LayoutShift;
+        const layoutShiftEntry = entry as any;
         if (!layoutShiftEntry.hadRecentInput) {
           clsValue += layoutShiftEntry.value;
         }
