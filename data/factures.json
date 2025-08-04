@@ -1,0 +1,33 @@
+{
+  "factures": [
+    {
+      "id": "facture_1",
+      "devisId": "devis_1",
+      "clientName": "Entreprise ABC",
+      "clientEmail": "contact@abc.com",
+      "clientPhone": "01 23 45 67 89",
+      "services": [
+        {
+          "id": "service_1",
+          "name": "nettoyage-bureaux",
+          "description": "Service de nettoyage de bureaux",
+          "quantity": 1,
+          "unitPrice": 2500,
+          "totalPrice": 2500,
+          "category": "nettoyage-bureaux"
+        }
+      ],
+      "totalAmount": 2500,
+      "status": "payee",
+      "createdAt": "2024-06-20T14:30:00Z",
+      "dueDate": "2024-07-20T14:30:00Z",
+      "paidAt": "2024-06-25T10:00:00Z",
+      "notes": "Facture générée à partir du devis approuvé",
+      "discount": 0,
+      "tax": 20,
+      "finalAmount": 3000,
+      "paymentMethod": "virement"
+    }
+  ],
+  "lastUpdated": "2024-07-04T10:00:00Z"
+} 

@@ -1,0 +1,106 @@
+{
+  "devis": [
+    {
+      "id": "devis_1",
+      "clientName": "Entreprise ABC",
+      "clientEmail": "contact@abc.com",
+      "clientPhone": "01 23 45 67 89",
+      "services": [
+        {
+          "id": "service_1",
+          "name": "nettoyage-bureaux",
+          "description": "Service de nettoyage de bureaux",
+          "quantity": 1,
+          "unitPrice": 2500,
+          "totalPrice": 2500,
+          "category": "nettoyage-bureaux"
+        }
+      ],
+      "totalAmount": 2500,
+      "status": "approved",
+      "createdAt": "2024-06-15T10:00:00Z",
+      "updatedAt": "2024-06-20T14:30:00Z",
+      "approvedAt": "2024-06-20T14:30:00Z",
+      "notes": "Nettoyage hebdomadaire des bureaux",
+      "discount": 0,
+      "tax": 20,
+      "finalAmount": 3000
+    },
+    {
+      "id": "devis_2",
+      "clientName": "Marie Martin",
+      "clientEmail": "marie.martin@email.com",
+      "clientPhone": "06 12 34 56 78",
+      "services": [
+        {
+          "id": "service_2",
+          "name": "nettoyage-residentiel",
+          "description": "Service de nettoyage résidentiel",
+          "quantity": 1,
+          "unitPrice": 800,
+          "totalPrice": 800,
+          "category": "nettoyage-residentiel"
+        }
+      ],
+      "totalAmount": 800,
+      "status": "pending",
+      "createdAt": "2024-07-01T09:00:00Z",
+      "updatedAt": "2024-07-01T09:00:00Z",
+      "notes": "Nettoyage mensuel de l'appartement",
+      "discount": 0,
+      "tax": 20,
+      "finalAmount": 960
+    },
+    {
+      "id": "devis_3",
+      "clientName": "Bureau Pro Services",
+      "clientEmail": "contact@bureaupro.fr",
+      "clientPhone": "04 78 90 12 34",
+      "services": [
+        {
+          "id": "service_3",
+          "name": "nettoyage-industriel",
+          "description": "Service de nettoyage industriel",
+          "quantity": 1,
+          "unitPrice": 5000,
+          "totalPrice": 5000,
+          "category": "nettoyage-industriel"
+        }
+      ],
+      "totalAmount": 5000,
+      "status": "draft",
+      "createdAt": "2024-07-03T16:00:00Z",
+      "updatedAt": "2024-07-03T16:00:00Z",
+      "notes": "Nettoyage des locaux industriels",
+      "discount": 0,
+      "tax": 20,
+      "finalAmount": 6000
+    },
+    {
+      "clientName": "tete",
+      "clientEmail": "tete@tete.fr",
+      "clientPhone": "",
+      "services": [
+        {
+          "id": "service_1754298866347",
+          "name": "nettoyage-bureaux",
+          "description": "Service de nettoyage-bureaux",
+          "quantity": 1,
+          "unitPrice": 17.5,
+          "totalPrice": 17.5,
+          "category": "nettoyage-bureaux"
+        }
+      ],
+      "totalAmount": 17.5,
+      "status": "draft",
+      "notes": "",
+      "discount": 0,
+      "tax": 20,
+      "finalAmount": 21,
+      "id": "devis_1754298866359_lwrzdnm0n",
+      "createdAt": "2025-08-04T09:14:26.359Z",
+      "updatedAt": "2025-08-04T09:14:26.359Z"
+    }
+  ],
+  "lastUpdated": "2025-08-04T09:14:26.359Z"
+}

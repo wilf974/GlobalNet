@@ -1,0 +1,17 @@
+# Correction du problème de persistance des clients
+
+## Problème identifié :
+- Le ClientManager utilise des types `Client` avec propriétés : `nom`, `email`, `telephone`, etc.
+- Le système de persistance utilise des types `ClientData` avec propriétés : `name`, `email`, `phone`, etc.
+- Les fonctions d'adaptation dans CAModule ne fonctionnent pas correctement
+- Le client "TOTO" existe dans data/clients.json mais n'apparaît pas dans l'interface
+
+## Solution :
+1. Corriger les fonctions d'adaptation dans CAModule.tsx
+2. S'assurer que les données persistantes sont chargées dans ClientManager
+3. Synchroniser les types entre ClientManager et le système de persistance
+
+## Actions à effectuer :
+1. Modifier CAModule.tsx pour corriger les fonctions d'adaptation
+2. Intégrer le système de persistance dans ClientManager
+3. Tester la création et l'affichage des clients 

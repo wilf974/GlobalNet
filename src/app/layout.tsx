@@ -5,6 +5,9 @@ import { Navigation } from '@/components/layout/Navigation';
 import Footer from '@/components/layout/Footer';
 import { AuthProvider } from '@/contexts/AuthContext';
 import A11yProvider, { SkipLink } from '@/components/ui/A11yProvider';
+import { ThemeProvider } from '@/components/ui/ThemeProvider';
+import PerformanceMonitor from '@/components/ui/PerformanceMonitor';
+import { MicroInteractionsProvider } from '@/components/ui/MicroInteractions';
 
 
 const inter = Inter({ subsets: ['latin'] });
@@ -102,15 +105,20 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} antialiased`}>
         <A11yProvider>
-          <AuthProvider>
-            <SkipLink href="#main-content">Passer au contenu principal</SkipLink>
-            <SkipLink href="#footer">Passer au pied de page</SkipLink>
-            <Navigation />
-            <main id="main-content">
-              {children}
-            </main>
-            <Footer id="footer" />
-          </AuthProvider>
+          <ThemeProvider>
+            <MicroInteractionsProvider>
+              <AuthProvider>
+                <SkipLink href="#main-content">Passer au contenu principal</SkipLink>
+                <SkipLink href="#footer">Passer au pied de page</SkipLink>
+                <Navigation />
+                <main id="main-content">
+                  {children}
+                </main>
+                <Footer id="footer" />
+                <PerformanceMonitor showDetails={false} autoRefresh={true} />
+              </AuthProvider>
+            </MicroInteractionsProvider>
+          </ThemeProvider>
         </A11yProvider>
         
         {/* Structured Data for SEO */}

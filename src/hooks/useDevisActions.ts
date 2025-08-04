@@ -1,129 +1,383 @@
 import { useState, useCallback } from 'react';
-import { DevisData } from '@/types';
-import { PdfGenerator } from '@/utils/pdfGenerator';
-import { EmailService } from '@/utils/emailService';
-import { DEFAULT_EMAIL_CONFIG } from '@/utils/emailConfig';
+import { Devis, DevisStatus, WorkflowStep, WorkflowAction, Approval, NotificationItem } from '../types/devis';
 
-interface DevisActionsConfig {
-  companyInfo: {
-    nom: string;
-    adresse: string;
-    telephone: string;
-    email: string;
-    siret: string;
-  };
-  smtp: {
-    host: string;
-    port: number;
-    secure: boolean;
-    auth: {
-      user: string;
-      pass: string;
-    };
-  };
+interface UseDevisActionsReturn {
+  // Actions principales
+  createDevis: (data: Partial<Devis>) => Promise<Devis>;
+  updateDevis: (id: string, data: Partial<Devis>) => Promise<Devis>;
+  deleteDevis: (id: string) => Promise<void>;
+  
+  // Actions de workflow
+  approveDevis: (id: string, userId: string, userName: string, commentaire?: string) => Promise<Devis>;
+  rejectDevis: (id: string, userId: string, userName: string, raison: string) => Promise<Devis>;
+  completeDevis: (id: string, userId: string, userName: string) => Promise<Devis>;
+  cancelDevis: (id: string, userId: string, userName: string, raison: string) => Promise<Devis>;
+  
+  // Actions de calcul
+  calculateDevis: (devis: Devis) => Devis;
+  calculateCA: (devisList: Devis[]) => number;
+  
+  // Actions de notification
+  addNotification: (devisId: string, notification: Omit<NotificationItem, 'id' | 'date'>) => Promise<void>;
+  markNotificationAsRead: (devisId: string, notificationId: string) => Promise<void>;
+  
+  // États
+  loading: boolean;
+  error: string | null;
+  success: string | null;
 }
 
-export const useDevisActions = (config?: DevisActionsConfig) => {
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isSending, setIsSending] = useState(false);
+export const useDevisActions = (): UseDevisActionsReturn => {
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  // Utiliser la configuration par défaut si aucune n'est fournie
-  const finalConfig = config || {
-    companyInfo: {
-      nom: DEFAULT_EMAIL_CONFIG.companyName,
-      adresse: "123 Rue de la Propreté, 75001 Paris",
-      telephone: "01 23 45 67 89",
-      email: DEFAULT_EMAIL_CONFIG.from,
-      siret: "123 456 789 00012"
-    },
-    smtp: DEFAULT_EMAIL_CONFIG.smtp
-  };
+  // Fonction utilitaire pour créer un step de workflow
+  const createWorkflowStep = useCallback((
+    action: WorkflowAction,
+    userId: string,
+    userName: string,
+    status: 'pending' | 'completed' | 'rejected' = 'completed',
+    commentaire?: string
+  ): WorkflowStep => ({
+    id: `step_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    action,
+    status,
+    userId,
+    userName,
+    date: new Date().toISOString(),
+    commentaire,
+  }), []);
 
-  const pdfGenerator = new PdfGenerator({
-    companyInfo: finalConfig.companyInfo,
-    devisNumber: `DEV-${Date.now()}`,
-    validite: 30
-  });
+  // Fonction utilitaire pour créer une approbation
+  const createApproval = useCallback((
+    userId: string,
+    userName: string,
+    role: string,
+    action: 'approve' | 'reject',
+    commentaire?: string
+  ): Approval => ({
+    id: `approval_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    userId,
+    userName,
+    role,
+    action,
+    date: new Date().toISOString(),
+    commentaire,
+  }), []);
 
-  const emailService = new EmailService({
-    smtp: finalConfig.smtp,
-    from: finalConfig.companyInfo.email,
-    companyName: finalConfig.companyInfo.nom
-  });
-
-  const downloadDevis = useCallback(async (devisData: DevisData) => {
-    setIsDownloading(true);
+  // Créer un nouveau devis
+  const createDevis = useCallback(async (data: Partial<Devis>): Promise<Devis> => {
+    setLoading(true);
     setError(null);
-
+    
     try {
-      // S'assurer que prixTotal est défini
-      const completeDevisData = {
-        ...devisData,
-        prixTotal: devisData.prixTotal || 0
+      const newDevis: Devis = {
+        id: `devis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        client: data.client || '',
+        email: data.email || '',
+        telephone: data.telephone || '',
+        service: data.service || '',
+        superficie: data.superficie || 0,
+        prix: data.prix || 0,
+        statut: 'draft',
+        dateCreation: new Date().toISOString(),
+        dateIntervention: data.dateIntervention || new Date().toISOString(),
+        adresse: data.adresse,
+        notes: data.notes,
+        montantHT: data.montantHT || 0,
+        montantTTC: data.montantTTC || 0,
+        tva: data.tva || 20,
+        marge: data.marge || 0,
+        tauxMarge: data.tauxMarge || 0,
+        clientId: data.clientId || '',
+        commercialId: data.commercialId || '',
+        workflowHistory: [createWorkflowStep('creation', data.commercialId || '', 'Commercial')],
+        notifications: [],
+        tags: data.tags || [],
+        priorite: data.priorite || 'normale',
+        dureeValidite: data.dureeValidite || 30,
+        dateExpiration: new Date(Date.now() + (data.dureeValidite || 30) * 24 * 60 * 60 * 1000).toISOString(),
+        conditions: data.conditions || [],
+        documents: data.documents || [],
+        approbations: data.approbations || [],
+      };
+
+      // Calculer automatiquement les montants
+      const devisCalculated = calculateDevis(newDevis);
+      
+      setSuccess('Devis créé avec succès');
+      return devisCalculated;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de la création du devis';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [createWorkflowStep]);
+
+  // Mettre à jour un devis
+  const updateDevis = useCallback(async (id: string, data: Partial<Devis>): Promise<Devis> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Simulation de mise à jour - dans une vraie app, ce serait un appel API
+      const updatedDevis: Devis = {
+        ...data,
+        id,
+        dateModification: new Date().toISOString(),
+      } as Devis;
+
+      // Recalculer les montants si nécessaire
+      const devisCalculated = calculateDevis(updatedDevis);
+      
+      setSuccess('Devis mis à jour avec succès');
+      return devisCalculated;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de la mise à jour du devis';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Supprimer un devis
+  const deleteDevis = useCallback(async (id: string): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Simulation de suppression - dans une vraie app, ce serait un appel API
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setSuccess('Devis supprimé avec succès');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de la suppression du devis';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Approuver un devis
+  const approveDevis = useCallback(async (
+    id: string, 
+    userId: string, 
+    userName: string, 
+    commentaire?: string
+  ): Promise<Devis> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const approval = createApproval(userId, userName, 'Approbateur', 'approve', commentaire);
+      const workflowStep = createWorkflowStep('validation_manager', userId, userName, 'completed', commentaire);
+      
+      // Simulation de mise à jour
+      const updatedDevis: Devis = {
+        id,
+        statut: 'approved',
+        approbations: [approval],
+        workflowHistory: [workflowStep],
+      } as Devis;
+      
+      setSuccess('Devis approuvé avec succès');
+      return updatedDevis;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de l\'approbation du devis';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [createApproval, createWorkflowStep]);
+
+  // Rejeter un devis
+  const rejectDevis = useCallback(async (
+    id: string, 
+    userId: string, 
+    userName: string, 
+    raison: string
+  ): Promise<Devis> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const approval = createApproval(userId, userName, 'Approbateur', 'reject', raison);
+      const workflowStep = createWorkflowStep('validation_manager', userId, userName, 'rejected', raison);
+      
+      // Simulation de mise à jour
+      const updatedDevis: Devis = {
+        id,
+        statut: 'rejected',
+        approbations: [approval],
+        workflowHistory: [workflowStep],
+      } as Devis;
+      
+      setSuccess('Devis rejeté');
+      return updatedDevis;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors du rejet du devis';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [createApproval, createWorkflowStep]);
+
+  // Terminer un devis
+  const completeDevis = useCallback(async (
+    id: string, 
+    userId: string, 
+    userName: string
+  ): Promise<Devis> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const workflowStep = createWorkflowStep('execution', userId, userName, 'completed');
+      
+      // Simulation de mise à jour
+      const updatedDevis: Devis = {
+        id,
+        statut: 'completed',
+        workflowHistory: [workflowStep],
+      } as Devis;
+      
+      setSuccess('Devis terminé avec succès');
+      return updatedDevis;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de la finalisation du devis';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [createWorkflowStep]);
+
+  // Annuler un devis
+  const cancelDevis = useCallback(async (
+    id: string, 
+    userId: string, 
+    userName: string, 
+    raison: string
+  ): Promise<Devis> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const workflowStep = createWorkflowStep('creation', userId, userName, 'rejected', raison);
+      
+      // Simulation de mise à jour
+      const updatedDevis: Devis = {
+        id,
+        statut: 'cancelled',
+        workflowHistory: [workflowStep],
+      } as Devis;
+      
+      setSuccess('Devis annulé');
+      return updatedDevis;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de l\'annulation du devis';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [createWorkflowStep]);
+
+  // Calculer les montants d'un devis
+  const calculateDevis = useCallback((devis: Devis): Devis => {
+    const montantHT = devis.montantHT || devis.prix || 0;
+    const tva = devis.tva || 20;
+    const montantTTC = montantHT * (1 + tva / 100);
+    const marge = montantHT * 0.3; // 30% de marge par défaut
+    const tauxMarge = (marge / montantHT) * 100;
+
+    return {
+      ...devis,
+      montantHT,
+      montantTTC: Math.round(montantTTC * 100) / 100,
+      marge: Math.round(marge * 100) / 100,
+      tauxMarge: Math.round(tauxMarge * 100) / 100,
+    };
+  }, []);
+
+  // Calculer le CA total
+  const calculateCA = useCallback((devisList: Devis[]): number => {
+    return devisList
+      .filter(devis => devis.statut === 'approved' || devis.statut === 'completed')
+      .reduce((total, devis) => total + (devis.montantTTC || 0), 0);
+  }, []);
+
+  // Ajouter une notification
+  const addNotification = useCallback(async (
+    devisId: string, 
+    notification: Omit<NotificationItem, 'id' | 'date'>
+  ): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const newNotification: NotificationItem = {
+        id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        ...notification,
+        date: new Date().toISOString(),
       };
       
-      const pdfBlob = await pdfGenerator.generateDevisPdf(completeDevisData);
+      // Simulation d'ajout de notification
+      await new Promise(resolve => setTimeout(resolve, 200));
       
-      // Créer un lien de téléchargement
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `devis-${Date.now()}.pdf`; // Maintenant en PDF
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      return true;
+      setSuccess('Notification ajoutée');
     } catch (err) {
-      setError('Erreur lors du téléchargement du devis');
-      console.error('Erreur téléchargement:', err);
-      return false;
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de l\'ajout de la notification';
+      setError(errorMessage);
+      throw err;
     } finally {
-      setIsDownloading(false);
+      setLoading(false);
     }
-  }, [pdfGenerator]);
+  }, []);
 
-  const sendDevisEmail = useCallback(async (devisData: DevisData) => {
-    setIsSending(true);
+  // Marquer une notification comme lue
+  const markNotificationAsRead = useCallback(async (
+    devisId: string, 
+    notificationId: string
+  ): Promise<void> => {
+    setLoading(true);
     setError(null);
-
+    
     try {
-      // S'assurer que prixTotal est défini
-      const completeDevisData = {
-        ...devisData,
-        prixTotal: devisData.prixTotal || 0
-      };
+      // Simulation de mise à jour
+      await new Promise(resolve => setTimeout(resolve, 200));
       
-      const pdfBlob = await pdfGenerator.generateDevisPdf(completeDevisData);
-      const success = await emailService.sendDevisEmail(completeDevisData, pdfBlob);
-      
-      if (success) {
-        return true;
-      } else {
-        setError('Erreur lors de l\'envoi de l\'email');
-        return false;
-      }
+      setSuccess('Notification marquée comme lue');
     } catch (err) {
-      setError('Erreur lors de l\'envoi de l\'email');
-      console.error('Erreur envoi email:', err);
-      return false;
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de la mise à jour de la notification';
+      setError(errorMessage);
+      throw err;
     } finally {
-      setIsSending(false);
+      setLoading(false);
     }
-  }, [pdfGenerator, emailService]);
-
-  const clearError = useCallback(() => {
-    setError(null);
   }, []);
 
   return {
-    downloadDevis,
-    sendDevisEmail,
-    isDownloading,
-    isSending,
+    createDevis,
+    updateDevis,
+    deleteDevis,
+    approveDevis,
+    rejectDevis,
+    completeDevis,
+    cancelDevis,
+    calculateDevis,
+    calculateCA,
+    addNotification,
+    markNotificationAsRead,
+    loading,
     error,
-    clearError
+    success,
   };
 }; 

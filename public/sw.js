@@ -1,189 +1,211 @@
-const CACHE_NAME = 'globalnet-v1'
-const STATIC_CACHE = 'static-v1'
-const DYNAMIC_CACHE = 'dynamic-v1'
-
-// Ressources à mettre en cache
-const STATIC_ASSETS = [
+const CACHE_NAME = 'globalnet-v1';
+const urlsToCache = [
   '/',
   '/offline',
-  '/manifest.json',
-  '/images/logo.png',
-  '/images/og-image.jpg',
-  '/css/critical.css',
-]
+  '/images/logo.jpg',
+  '/images/badge.png',
+  '/sounds/notification.mp3',
+  '/sounds/success.mp3',
+  '/sounds/error.mp3',
+  '/sounds/warning.mp3',
+];
 
-// Stratégies de cache
-const CACHE_STRATEGIES = {
-  // Cache First pour les ressources statiques
-  CACHE_FIRST: 'cache-first',
-  // Network First pour les données dynamiques
-  NETWORK_FIRST: 'network-first',
-  // Stale While Revalidate pour les ressources importantes
-  STALE_WHILE_REVALIDATE: 'stale-while-revalidate',
-}
-
-// Installation du service worker
+// Installation du Service Worker
 self.addEventListener('install', (event) => {
-  console.log('Service Worker: Installing...')
-  
   event.waitUntil(
-    caches.open(STATIC_CACHE)
+    caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Service Worker: Caching static assets')
-        return cache.addAll(STATIC_ASSETS)
+        console.log('Cache ouvert');
+        return cache.addAll(urlsToCache);
       })
-      .then(() => {
-        console.log('Service Worker: Static assets cached')
-        return self.skipWaiting()
+      .catch((error) => {
+        console.error('Erreur lors de l\'installation du cache:', error);
       })
-  )
-})
+  );
+});
 
-// Activation du service worker
+// Activation du Service Worker
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker: Activating...')
-  
   event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
-              console.log('Service Worker: Deleting old cache', cacheName)
-              return caches.delete(cacheName)
-            }
-          })
-        )
-      })
-      .then(() => {
-        console.log('Service Worker: Activated')
-        return self.clients.claim()
-      })
-  )
-})
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('Suppression de l\'ancien cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
+});
 
-// Interception des requêtes
+// Interception des requêtes réseau
 self.addEventListener('fetch', (event) => {
-  const { request } = event
-  const url = new URL(request.url)
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => {
+        // Retourner la réponse du cache si elle existe
+        if (response) {
+          return response;
+        }
 
-  // Ignorer les requêtes non-GET
-  if (request.method !== 'GET') {
-    return
-  }
+        // Sinon, faire la requête réseau
+        return fetch(event.request)
+          .then((response) => {
+            // Vérifier si la réponse est valide
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
 
-  // Stratégie pour les ressources statiques
-  if (isStaticAsset(url.pathname)) {
-    event.respondWith(cacheFirst(request))
-    return
-  }
+            // Cloner la réponse pour la mettre en cache
+            const responseToCache = response.clone();
 
-  // Stratégie pour les API
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(request))
-    return
-  }
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(event.request, responseToCache);
+              });
 
-  // Stratégie par défaut
-  event.respondWith(staleWhileRevalidate(request))
-})
+            return response;
+          })
+          .catch(() => {
+            // En cas d'erreur réseau, retourner la page offline
+            if (event.request.mode === 'navigate') {
+              return caches.match('/offline');
+            }
+          });
+      })
+  );
+});
 
-// Stratégie Cache First
-async function cacheFirst(request) {
-  const cache = await caches.open(STATIC_CACHE)
-  const cachedResponse = await cache.match(request)
-  
-  if (cachedResponse) {
-    return cachedResponse
-  }
+// Gestion des notifications push
+self.addEventListener('push', (event) => {
+  console.log('Notification push reçue:', event);
 
-  try {
-    const networkResponse = await fetch(request)
-    if (networkResponse.ok) {
-      cache.put(request, networkResponse.clone())
+  let notificationData = {
+    title: 'GlobalNet Services',
+    body: 'Nouvelle notification',
+    icon: '/images/logo.jpg',
+    badge: '/images/badge.png',
+    tag: 'globalnet-notification',
+    data: {},
+  };
+
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      notificationData = {
+        ...notificationData,
+        ...data,
+      };
+    } catch (error) {
+      console.error('Erreur lors du parsing des données de notification:', error);
     }
-    return networkResponse
-  } catch (error) {
-    console.log('Service Worker: Network failed, serving from cache', error)
-    return cachedResponse || new Response('Offline content not available', {
-      status: 503,
-      statusText: 'Service Unavailable',
-    })
   }
-}
 
-// Stratégie Network First
-async function networkFirst(request) {
-  const cache = await caches.open(DYNAMIC_CACHE)
-  
-  try {
-    const networkResponse = await fetch(request)
-    if (networkResponse.ok) {
-      cache.put(request, networkResponse.clone())
-    }
-    return networkResponse
-  } catch (error) {
-    console.log('Service Worker: Network failed, serving from cache', error)
-    const cachedResponse = await cache.match(request)
-    return cachedResponse || new Response('Offline content not available', {
-      status: 503,
-      statusText: 'Service Unavailable',
-    })
+  const options = {
+    body: notificationData.body,
+    icon: notificationData.icon,
+    badge: notificationData.badge,
+    tag: notificationData.tag,
+    data: notificationData.data,
+    requireInteraction: true,
+    actions: [
+      {
+        action: 'view',
+        title: 'Voir',
+        icon: '/images/view.png',
+      },
+      {
+        action: 'close',
+        title: 'Fermer',
+        icon: '/images/close.png',
+      },
+    ],
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(notificationData.title, options)
+  );
+});
+
+// Gestion des clics sur les notifications
+self.addEventListener('notificationclick', (event) => {
+  console.log('Clic sur notification:', event);
+
+  event.notification.close();
+
+  if (event.action === 'close') {
+    return;
   }
-}
 
-// Stratégie Stale While Revalidate
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(DYNAMIC_CACHE)
-  const cachedResponse = await cache.match(request)
-  
-  const fetchPromise = fetch(request).then((networkResponse) => {
-    if (networkResponse.ok) {
-      cache.put(request, networkResponse.clone())
-    }
-    return networkResponse
-  }).catch(() => {
-    console.log('Service Worker: Network failed')
-    return cachedResponse
-  })
+  // Ouvrir l'application
+  event.waitUntil(
+    clients.matchAll({ type: 'window' })
+      .then((clientList) => {
+        // Si une fenêtre est déjà ouverte, la focaliser
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            return client.focus();
+          }
+        }
 
-  return cachedResponse || fetchPromise
-}
+        // Sinon, ouvrir une nouvelle fenêtre
+        if (clients.openWindow) {
+          return clients.openWindow('/');
+        }
+      })
+  );
+});
 
-// Vérifier si c'est une ressource statique
-function isStaticAsset(pathname) {
-  return STATIC_ASSETS.includes(pathname) ||
-         pathname.startsWith('/_next/static/') ||
-         pathname.startsWith('/images/') ||
-         pathname.startsWith('/fonts/') ||
-         pathname.endsWith('.css') ||
-         pathname.endsWith('.js') ||
-         pathname.endsWith('.png') ||
-         pathname.endsWith('.jpg') ||
-         pathname.endsWith('.jpeg') ||
-         pathname.endsWith('.gif') ||
-         pathname.endsWith('.svg') ||
-         pathname.endsWith('.woff') ||
-         pathname.endsWith('.woff2')
-}
+// Gestion des notifications fermées
+self.addEventListener('notificationclose', (event) => {
+  console.log('Notification fermée:', event);
+});
 
-// Gestion des messages
+// Gestion des messages du client
 self.addEventListener('message', (event) => {
+  console.log('Message reçu du client:', event.data);
+
   if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting()
+    self.skipWaiting();
   }
-  
+
   if (event.data && event.data.type === 'GET_VERSION') {
-    event.ports[0].postMessage({ version: CACHE_NAME })
+    event.ports[0].postMessage({ version: CACHE_NAME });
   }
-})
+});
 
-// Gestion des erreurs
-self.addEventListener('error', (event) => {
-  console.error('Service Worker: Error', event.error)
-})
+// Fonction utilitaire pour envoyer une notification
+function sendNotification(title, body, icon = '/images/logo.jpg') {
+  return self.registration.showNotification(title, {
+    body,
+    icon,
+    badge: '/images/badge.png',
+    tag: 'globalnet-notification',
+    requireInteraction: false,
+  });
+}
 
-// Gestion des rejets de promesses non gérés
-self.addEventListener('unhandledrejection', (event) => {
-  console.error('Service Worker: Unhandled promise rejection', event.reason)
-}) 
+// Fonction utilitaire pour jouer un son
+function playNotificationSound(soundType = 'notification') {
+  const audioContext = new AudioContext();
+  
+  fetch(`/sounds/${soundType}.mp3`)
+    .then(response => response.arrayBuffer())
+    .then(arrayBuffer => audioContext.decodeAudioData(arrayBuffer))
+    .then(audioBuffer => {
+      const source = audioContext.createBufferSource();
+      const gainNode = audioContext.createGain();
+      
+      source.buffer = audioBuffer;
+      source.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      gainNode.gain.value = 0.3; // Volume à 30%
+      source.start(0);
+    })
+    .catch(error => {
+      console.error('Erreur lors de la lecture du son:', error);
+    });
+} 

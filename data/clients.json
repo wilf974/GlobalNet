@@ -1,0 +1,43 @@
+{
+  "clients": [
+    {
+      "id": "client_3",
+      "name": "Bureau Pro Services",
+      "email": "contact@bureaupro.fr",
+      "phone": "04 78 90 12 34",
+      "address": "789 Boulevard Central, 13001 Marseille",
+      "company": "Bureau Pro Services",
+      "totalDevis": 8,
+      "totalRevenue": 32000,
+      "lastContact": "2024-07-02T09:15:00Z",
+      "status": "active",
+      "notes": "Nouveau client, très satisfait"
+    },
+    {
+      "name": "TOTO",
+      "email": "toto@toto.fr",
+      "phone": "01 23 45 67 89",
+      "address": "zfezgfzeg",
+      "totalDevis": 0,
+      "totalRevenue": 0,
+      "lastContact": "2025-08-04T08:09:48.170Z",
+      "status": "active",
+      "notes": "",
+      "id": "client_1754294988170_53ysblzmq"
+    },
+    {
+      "name": "TITI",
+      "email": "titi@titi.fr",
+      "phone": "0123456789",
+      "address": "",
+      "company": "",
+      "totalDevis": 0,
+      "totalRevenue": 0,
+      "lastContact": "2025-08-04T09:11:08.337Z",
+      "status": "active",
+      "notes": "",
+      "id": "client_1754298668337_a1hnyih3z"
+    }
+  ],
+  "lastUpdated": "2025-08-04T09:11:08.337Z"
+}
