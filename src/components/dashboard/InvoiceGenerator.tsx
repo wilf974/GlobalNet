@@ -65,8 +65,8 @@ const InvoiceGenerator: React.FC<InvoiceGeneratorProps> = ({
     statut: 'draft',
     conditions: [
       'Paiement à 30 jours',
-      'Pas d'escompte en cas de paiement anticipé',
-      'En cas de retard de paiement, une pénalité de 3 fois le taux d'intérêt légal sera appliquée'
+      'Pas d\'escompte en cas de paiement anticipé',
+      'En cas de retard de paiement, une pénalité de 3 fois le taux d\'intérêt légal sera appliquée'
     ],
     notes: '',
     modePaiement: 'virement',

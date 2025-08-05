@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface LazyLoadOptions {
   threshold?: number;
@@ -23,13 +23,13 @@ export const useLazyLoad = (options: LazyLoadOptions = {}) => {
   const {
     threshold = 0.1,
     rootMargin = '50px',
-    fallback = null,
     cache = true,
     preload = false,
     retryCount: maxRetryCount = 3,
     retryDelay = 1000
   } = options;
 
+  const elementRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<LazyLoadState>({
     isVisible: false,
     isLoaded: false,
@@ -37,120 +37,48 @@ export const useLazyLoad = (options: LazyLoadOptions = {}) => {
     retryCount: 0
   });
 
-  const elementRef = useRef<HTMLElement>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
+  const observer = useRef<IntersectionObserver | null>(null);
+  const cacheRef = useRef<Set<string>>(new Set());
 
-  // Cache pour les éléments déjà chargés
-  const loadedCache = useMemo(() => new Set<string>(), []);
-
-  const handleIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        setState(prev => ({ ...prev, isVisible: true }));
-        
-        // Déconnecter l'observer une fois visible
-        if (observerRef.current) {
-          observerRef.current.disconnect();
-        }
-      }
-    });
+  const setVisible = useCallback((isVisible: boolean) => {
+    setState(prev => ({
+      ...prev,
+      isVisible
+    }));
   }, []);
 
-  const loadElement = useCallback(async () => {
-    if (!elementRef.current) return;
+  const setLoaded = useCallback((isLoaded: boolean) => {
+    setState(prev => ({
+      ...prev,
+      isLoaded
+    }));
+  }, []);
 
-    const element = elementRef.current;
-    const elementId = element.dataset.lazyId || element.id || 'unknown';
+  const setError = useCallback((isError: boolean) => {
+    setState(prev => ({
+      ...prev,
+      isError
+    }));
+  }, []);
 
-    // Vérifier le cache
-    if (cache && loadedCache.has(elementId)) {
-      setState(prev => ({ ...prev, isLoaded: true }));
-      return;
-    }
-
-    try {
-      // Simuler un chargement asynchrone
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Marquer comme chargé dans le cache
-      if (cache) {
-        loadedCache.add(elementId);
-      }
-
-      setState(prev => ({ ...prev, isLoaded: true }));
-    } catch (error) {
-      console.error('Erreur lors du chargement lazy:', error);
-      
-      if (state.retryCount < maxRetryCount) {
-        setState(prev => ({ 
-          ...prev, 
-          retryCount: prev.retryCount + 1 
-        }));
-        
-        // Retry après délai
-        setTimeout(() => {
-          loadElement();
-        }, retryDelay);
-      } else {
-        setState(prev => ({ ...prev, isError: true }));
-      }
-    }
-  }, [cache, loadedCache, state.retryCount, maxRetryCount, retryDelay]);
-
-  // Initialiser l'Intersection Observer
-  useEffect(() => {
-    if (!elementRef.current) return;
-
-    // Créer l'observer
-    observerRef.current = new IntersectionObserver(handleIntersection, {
-      threshold,
-      rootMargin
-    });
-
-    // Observer l'élément
-    observerRef.current.observe(elementRef.current);
-
-    // Preload si activé
-    if (preload) {
-      loadElement();
-    }
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [handleIntersection, threshold, rootMargin, preload, loadElement]);
-
-  // Charger l'élément quand il devient visible
-  useEffect(() => {
-    if (state.isVisible && !state.isLoaded && !state.isError) {
-      loadElement();
-    }
-  }, [state.isVisible, state.isLoaded, state.isError, loadElement]);
-
-  // Nettoyer le cache périodiquement
-  useEffect(() => {
-    if (!cache) return;
-
-    const cleanupCache = () => {
-      if (loadedCache.size > 100) {
-        loadedCache.clear();
-      }
-    };
-
-    const interval = setInterval(cleanupCache, 60000); // Nettoyer toutes les minutes
-    return () => clearInterval(interval);
-  }, [cache, loadedCache]);
+  const incrementRetryCount = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      retryCount: prev.retryCount + 1
+    }));
+  }, []);
 
   const retry = useCallback(() => {
-    setState(prev => ({ 
-      ...prev, 
-      isError: false, 
-      retryCount: 0 
-    }));
-    loadElement();
-  }, [loadElement]);
+    if (state.retryCount < maxRetryCount) {
+      setError(false);
+      setLoaded(false);
+      incrementRetryCount();
+      
+      setTimeout(() => {
+        setVisible(true);
+      }, retryDelay);
+    }
+  }, [state.retryCount, maxRetryCount, retryDelay, setError, setLoaded, incrementRetryCount, setVisible]);
 
   const reset = useCallback(() => {
     setState({
@@ -161,6 +89,70 @@ export const useLazyLoad = (options: LazyLoadOptions = {}) => {
     });
   }, []);
 
+  // Setup Intersection Observer
+  useEffect(() => {
+    if (!elementRef.current) return;
+
+    const handleIntersection = (entries: IntersectionObserverEntry[]) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          
+          if (observer.current) {
+            observer.current.disconnect();
+          }
+        }
+      });
+    };
+
+    observer.current = new IntersectionObserver(handleIntersection, {
+      threshold,
+      rootMargin
+    });
+
+    observer.current.observe(elementRef.current);
+
+    return () => {
+      if (observer.current) {
+        observer.current.disconnect();
+      }
+    };
+  }, [threshold, rootMargin, setVisible]);
+
+  // Cache management
+  useEffect(() => {
+    if (cache && elementRef.current) {
+      const elementId = elementRef.current.id || elementRef.current.className;
+      if (elementId && cacheRef.current.has(elementId)) {
+        setLoaded(true);
+        setVisible(true);
+      }
+    }
+  }, [cache, setLoaded, setVisible]);
+
+  const addToCache = useCallback((id: string) => {
+    if (cache) {
+      cacheRef.current.add(id);
+    }
+  }, [cache]);
+
+  const removeFromCache = useCallback((id: string) => {
+    if (cache) {
+      cacheRef.current.delete(id);
+    }
+  }, [cache]);
+
+  const cleanupCache = () => {
+    cacheRef.current.clear();
+  };
+
+  // Preload option
+  useEffect(() => {
+    if (preload && elementRef.current) {
+      setVisible(true);
+    }
+  }, [preload, setVisible]);
+
   return {
     ref: elementRef,
     isVisible: state.isVisible,
@@ -169,17 +161,9 @@ export const useLazyLoad = (options: LazyLoadOptions = {}) => {
     retryCount: state.retryCount,
     retry,
     reset,
-    fallback: state.isError ? (
-      <div className="p-4 text-center text-red-600">
-        <p>Erreur de chargement</p>
-        <button 
-          onClick={retry}
-          className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-        >
-          Réessayer
-        </button>
-      </div>
-    ) : !state.isLoaded ? fallback : null
+    addToCache,
+    removeFromCache,
+    cleanupCache
   };
 };
 
@@ -191,14 +175,7 @@ export const useLazyImage = (src: string, options: LazyLoadOptions = {}) => {
     isError: false
   });
 
-  const { ref, isVisible, isLoaded, isError, retry } = useLazyLoad({
-    ...options,
-    fallback: (
-      <div className="animate-pulse bg-gray-200 rounded">
-        <div className="w-full h-32 bg-gray-300 rounded"></div>
-      </div>
-    )
-  });
+  const { ref, isVisible, isLoaded, isError, retry } = useLazyLoad(options);
 
   useEffect(() => {
     if (isVisible && src && !imageState.isLoaded) {
@@ -242,15 +219,7 @@ export const useLazyComponent = <T extends React.ComponentType<any>>(
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const { ref, isVisible, isLoaded, retry } = useLazyLoad({
-    ...options,
-    fallback: isLoading ? (
-      <div className="animate-pulse bg-gray-200 rounded p-4">
-        <div className="h-4 bg-gray-300 rounded mb-2"></div>
-        <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-      </div>
-    ) : null
-  });
+  const { ref, isVisible, isLoaded, retry } = useLazyLoad(options);
 
   useEffect(() => {
     if (isVisible && !Component && !isLoading && !error) {
@@ -269,18 +238,11 @@ export const useLazyComponent = <T extends React.ComponentType<any>>(
     }
   }, [isVisible, Component, isLoading, error, importFn]);
 
-  const reset = useCallback(() => {
-    setComponent(null);
-    setIsLoading(false);
-    setError(null);
-  }, []);
-
   return {
     ref,
     Component,
     isLoading,
     error,
-    retry,
-    reset
+    retry
   };
 }; 

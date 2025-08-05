@@ -21,7 +21,7 @@ import {
   History,
   TrendingUp,
   Tag,
-  Document,
+  FileText as Document,
   Users,
   Settings
 } from 'lucide-react';

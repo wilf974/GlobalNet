@@ -30,9 +30,9 @@ const ExportTools: React.FC<ExportToolsProps> = ({ devis, onExport }) => {
 
   const getExportStats = () => {
     const total = devis.length;
-    const pending = devis.filter(d => d.statut === 'En attente').length;
-    const validated = devis.filter(d => d.statut === 'Validé').length;
-    const completed = devis.filter(d => d.statut === 'Terminé').length;
+    const pending = devis.filter(d => d.statut === 'pending').length;
+    const validated = devis.filter(d => d.statut === 'approved').length;
+    const completed = devis.filter(d => d.statut === 'completed').length;
     const totalRevenue = devis.reduce((sum, d) => sum + d.prix, 0);
 
     return { total, pending, validated, completed, totalRevenue };

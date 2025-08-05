@@ -14,6 +14,7 @@ import { useDevisCalculator } from '@/hooks/useDevisCalculator';
 import { useDevisActions } from '@/hooks/useDevisActions';
 import { FORM_STEPS, TYPES_NETTOYAGE, FREQUENCES, OPTIONS_SUPPLEMENTAIRES, TARIFS } from '@/utils/constants';
 import { DevisData } from '@/types';
+import { Devis, DevisStatus } from '@/types/devis';
 
 // Validation schema for the quote form
 const quoteFormSchema = z.object({
@@ -45,6 +46,42 @@ const quoteFormSchema = z.object({
 type QuoteFormData = z.infer<typeof quoteFormSchema>;
 
 const STORAGE_KEY = 'devis_draft';
+
+// Fonction d'adaptation pour convertir les données du formulaire en Devis
+const adaptFormDataToDevis = (formData: any): Devis => {
+  return {
+    id: `devis_${Date.now()}`,
+    client: formData.nom || '',
+    email: formData.email || '',
+    telephone: formData.telephone || '',
+    service: formData.typeNettoyage || '',
+    superficie: formData.surface || 0,
+    prix: 0, // Sera calculé
+    statut: 'draft' as DevisStatus,
+    dateCreation: new Date().toISOString(),
+    dateIntervention: formData.dateIntervention ? new Date(formData.dateIntervention).toISOString() : new Date().toISOString(),
+    adresse: formData.adresse || '',
+    notes: formData.commentaires || '',
+    signature: formData.signature || '',
+    dateSignature: formData.signature ? new Date().toISOString() : '',
+    montantHT: 0, // Sera calculé
+    montantTTC: 0, // Sera calculé
+    tva: 0, // Sera calculé
+    marge: 0,
+    tauxMarge: 0,
+    clientId: '',
+    commercialId: '',
+    workflowHistory: [],
+    notifications: [],
+    tags: [],
+    priorite: 'normale',
+    dureeValidite: 30,
+    dateExpiration: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    conditions: [],
+    documents: [],
+    approbations: []
+  };
+};
 
 const QuoteForm: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,135 +135,89 @@ const QuoteForm: React.FC = () => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       setAutoSaveStatus('saved');
-      setShowAutoSaveMessage(true);
-      // Réduire le temps d'affichage du message
-      setTimeout(() => {
-        setShowAutoSaveMessage(false);
-        setAutoSaveStatus(null);
-      }, 2000);
     } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
       setAutoSaveStatus('error');
-      console.error('Erreur auto-sauvegarde:', error);
     }
   }, []);
 
-  // Load from localStorage on mount
-  useEffect(() => {
+  const loadFromLocalStorage = useCallback(() => {
     try {
-      const savedData = localStorage.getItem(STORAGE_KEY);
-      if (savedData) {
-        const parsedData = JSON.parse(savedData);
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsedData = JSON.parse(saved);
+        reset(parsedData);
         setFormData(parsedData);
-        // Restaurer les valeurs dans le formulaire
-        Object.entries(parsedData).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            setValue(key as any, value);
-          }
-        });
+        return true;
       }
     } catch (error) {
-      console.error('Erreur chargement données:', error);
+      console.error('Erreur lors du chargement:', error);
     }
-  }, [setValue]);
+    return false;
+  }, [reset]);
 
-  // Auto-save when form data changes - optimisé pour éviter les sauvegardes constantes
+  // Auto-save effect
   useEffect(() => {
-    if (isDirty) {
-      setAutoSaveStatus('saving');
-      const timeoutId = setTimeout(() => {
-        const currentData = getCurrentStepData();
-        // Vérifier si les données ont vraiment changé avant de sauvegarder
-        const lastSavedData = localStorage.getItem(STORAGE_KEY);
-        if (lastSavedData) {
-          const parsedLastData = JSON.parse(lastSavedData);
-          const currentDataString = JSON.stringify(currentData);
-          const lastDataString = JSON.stringify(parsedLastData);
-          
-          // Ne sauvegarder que si les données ont vraiment changé
-          if (currentDataString !== lastDataString) {
-            saveToLocalStorage(currentData);
-          } else {
-            setAutoSaveStatus(null);
-          }
-        } else {
-          // Première sauvegarde
-          saveToLocalStorage(currentData);
-        }
-      }, 2000); // Augmenter le délai à 2 secondes
+    const subscription = watch((data) => {
+      if (isDirty) {
+        setAutoSaveStatus('saving');
+        saveToLocalStorage(data);
+        setShowAutoSaveMessage(true);
+        
+        setTimeout(() => {
+          setShowAutoSaveMessage(false);
+        }, 2000);
+      }
+    });
 
-      return () => {
-        clearTimeout(timeoutId);
-        setAutoSaveStatus(null);
-      };
-    }
-  }, [isDirty, saveToLocalStorage]); // Retirer watchedValues des dépendances
+    return () => subscription.unsubscribe();
+  }, [watch, isDirty, saveToLocalStorage]);
+
+  // Load saved data on mount
+  useEffect(() => {
+    loadFromLocalStorage();
+  }, [loadFromLocalStorage]);
 
   const getCurrentStepData = () => {
-    const currentData = { ...formData };
-    
-    switch (currentStep) {
-      case 1:
-        currentData.clientInfo = {
-          nom: watchedValues.nom || '',
-          email: watchedValues.email || '',
-          telephone: watchedValues.telephone || '',
-          adresse: watchedValues.adresse || '',
-          codePostal: watchedValues.codePostal || '',
-          ville: watchedValues.ville || ''
-        };
-        break;
-      case 2:
-        currentData.serviceDetails = {
-          typeNettoyage: watchedValues.typeNettoyage as any,
-          superficie: watchedValues.surface || 0,
-          frequence: watchedValues.frequence as any,
-          dateIntervention: watchedValues.dateIntervention ? new Date(watchedValues.dateIntervention) : new Date(),
-          horaires: ''
-        };
-        break;
-      case 3:
-        currentData.optionsSupplementaires = {
-          nettoyageVitres: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageVitres') : false,
-          desinfection: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('desinfection') : false,
-          nettoyageFacades: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageFacades') : false,
-          nettoyageParking: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageParking') : false,
-          nettoyageCarpettes: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageCarpettes') : false,
-          traitementAntiCalcaire: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('traitementAntiCalcaire') : false
-        };
-        currentData.commentaires = watchedValues.commentaires || '';
-        break;
-      case 4:
-        currentData.signature = watchedValues.signature || '';
-        break;
-    }
-    
-    return currentData;
+    const watched = watch();
+    return {
+      nom: watched.nom || '',
+      email: watched.email || '',
+      telephone: watched.telephone || '',
+      adresse: watched.adresse || '',
+      codePostal: watched.codePostal || '',
+      ville: watched.ville || '',
+      typeNettoyage: watched.typeNettoyage || '',
+      surface: watched.surface || 0,
+      frequence: watched.frequence || '',
+      dateIntervention: watched.dateIntervention || '',
+      optionsSupplementaires: watched.optionsSupplementaires || [],
+      commentaires: watched.commentaires || '',
+      signature: watched.signature || '',
+      conditionsAcceptees: watched.conditionsAcceptees || false,
+    };
   };
 
   const validateCurrentStep = (stepData: any): boolean => {
     switch (currentStep) {
       case 1:
-        return stepData.clientInfo?.nom && stepData.clientInfo?.email && stepData.clientInfo?.telephone;
+        return !!(stepData.nom && stepData.email && stepData.telephone && stepData.adresse && stepData.codePostal && stepData.ville);
       case 2:
-        return stepData.serviceDetails?.typeNettoyage && stepData.serviceDetails?.superficie;
+        return !!(stepData.typeNettoyage && stepData.surface && stepData.frequence && stepData.dateIntervention);
       case 3:
-        return true; // Les options sont optionnelles
+        return true; // Options supplémentaires sont optionnelles
       case 4:
-        return stepData.signature;
+        return !!stepData.signature;
       case 5:
-        return watchedValues.conditionsAcceptees;
+        return stepData.conditionsAcceptees;
       default:
         return false;
     }
   };
 
   const handleNextStep = () => {
-    const currentData = getCurrentStepData();
-    const isValid = validateCurrentStep(currentData);
-    
-    if (isValid) {
+    if (validateCurrentStep(getCurrentStepData())) {
       setStepValid(currentStep, true);
-      setFormData(currentData);
       nextStep();
     }
   };
@@ -237,32 +228,58 @@ const QuoteForm: React.FC = () => {
 
   const onSubmit = async (data: QuoteFormData) => {
     setIsSubmitting(true);
-    
+    clearError();
+
     try {
-      // Simuler l'envoi du devis
+      // Simulation d'envoi du devis
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Sauvegarder les données finales
-      const finalData = {
-        ...formData,
+      // Créer un objet DevisData complet selon le type du système de devis
+      const devisData: DevisData = {
+        id: `devis_${Date.now()}`,
+        clientInfo: {
+          nom: data.nom,
+          email: data.email,
+          telephone: data.telephone,
+          adresse: data.adresse,
+          codePostal: data.codePostal,
+          ville: data.ville
+        },
+        serviceDetails: {
+          typeNettoyage: data.typeNettoyage as any,
+          superficie: data.surface,
+          frequence: data.frequence as any,
+          dateIntervention: new Date(data.dateIntervention),
+          horaires: ''
+        },
+        optionsSupplementaires: {
+          nettoyageVitres: Array.isArray(data.optionsSupplementaires) ? data.optionsSupplementaires.includes('nettoyageVitres') : false,
+          desinfection: Array.isArray(data.optionsSupplementaires) ? data.optionsSupplementaires.includes('desinfection') : false,
+          nettoyageFacades: Array.isArray(data.optionsSupplementaires) ? data.optionsSupplementaires.includes('nettoyageFacades') : false,
+          nettoyageParking: Array.isArray(data.optionsSupplementaires) ? data.optionsSupplementaires.includes('nettoyageParking') : false,
+          nettoyageCarpettes: Array.isArray(data.optionsSupplementaires) ? data.optionsSupplementaires.includes('nettoyageCarpettes') : false,
+          traitementAntiCalcaire: Array.isArray(data.optionsSupplementaires) ? data.optionsSupplementaires.includes('traitementAntiCalcaire') : false
+        },
         prixTotal: currentPrice,
-        statut: 'envoye' as const,
+        statut: 'brouillon',
         dateCreation: new Date(),
         dateModification: new Date(),
-        cgvAcceptees: data.conditionsAcceptees
+        signature: data.signature,
+        cgvAcceptees: data.conditionsAcceptees,
+        commentaires: data.commentaires
       };
+
+      setFormData(devisData);
       
-      setFormData(finalData);
-      
-      // Nettoyer le localStorage
+      // Nettoyer le localStorage après envoi réussi
       localStorage.removeItem(STORAGE_KEY);
       
-      // Rediriger vers une page de confirmation
-      alert('Devis envoyé avec succès ! Vous recevrez une réponse sous 24h.');
+      // Afficher un message de succès
+      alert('Devis envoyé avec succès !');
       
     } catch (error) {
-      console.error('Erreur envoi devis:', error);
-      alert('Erreur lors de l\'envoi du devis. Veuillez réessayer.');
+      console.error('Erreur lors de l\'envoi:', error);
+      alert('Erreur lors de l\'envoi du devis');
     } finally {
       setIsSubmitting(false);
     }
@@ -279,87 +296,98 @@ const QuoteForm: React.FC = () => {
       case 4:
         return <SignatureStep register={register} errors={errors} setValue={setValue} />;
       case 5:
-        return <ConfirmationStep formData={formData} currentPrice={currentPrice} register={register} errors={errors} />;
+        return <ConfirmationStep formData={getCurrentStepData()} currentPrice={currentPrice} register={register} errors={errors} />;
       default:
         return null;
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {steps[currentStep - 1]?.titre}
-          </h2>
-          <span className="text-sm text-gray-500">
-            Étape {currentStep} sur {steps.length}
-          </span>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Demande de Devis</h1>
+          <p className="text-gray-600">Remplissez le formulaire pour obtenir votre devis personnalisé</p>
         </div>
-        
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-primary h-2 rounded-full transition-all duration-300"
-            style={{ width: `${getProgress()}%` }}
-          />
-        </div>
-        
-        <div className="flex justify-between mt-2 text-xs text-gray-500">
-          {steps.map((step, index) => (
-            <span 
-              key={step.id}
-              className={`${index < currentStep ? 'text-primary font-medium' : ''}`}
-            >
-              {step.titre}
-            </span>
-          ))}
-        </div>
-      </div>
 
-      {/* Auto-save message - optimisé pour être moins intrusif */}
-      <AnimatePresence>
-        {showAutoSaveMessage && autoSaveStatus && (
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            {steps.map((step, index) => (
+              <div key={index} className="flex items-center">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  index + 1 < currentStep 
+                    ? 'bg-green-500 text-white' 
+                    : index + 1 === currentStep 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-200 text-gray-600'
+                }`}>
+                  {index + 1 < currentStep ? <Check className="w-4 h-4" /> : index + 1}
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`w-16 h-1 mx-2 ${
+                    index + 1 < currentStep ? 'bg-green-500' : 'bg-gray-200'
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${getProgress()}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Auto-save Status */}
+        {showAutoSaveMessage && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className={`mb-4 p-2 rounded-lg flex items-center space-x-2 text-xs ${
-              autoSaveStatus === 'saved' ? 'bg-green-50 text-green-700 border border-green-200' :
-              autoSaveStatus === 'saving' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-              'bg-red-50 text-red-700 border border-red-200'
+            exit={{ opacity: 0, y: -10 }}
+            className={`mb-4 p-3 rounded-lg flex items-center space-x-2 ${
+              autoSaveStatus === 'saved' ? 'bg-green-100 text-green-800' :
+              autoSaveStatus === 'saving' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-red-100 text-red-800'
             }`}
           >
-            <Save className="w-3 h-3" />
-            <span>
-              {autoSaveStatus === 'saved' ? 'Sauvegardé' :
-               autoSaveStatus === 'saving' ? 'Sauvegarde...' :
-               'Erreur de sauvegarde'}
-            </span>
+            {autoSaveStatus === 'saved' ? (
+              <>
+                <Check className="w-4 h-4" />
+                <span>Devis sauvegardé</span>
+              </>
+            ) : autoSaveStatus === 'saving' ? (
+              <>
+                <Save className="w-4 h-4 animate-spin" />
+                <span>Sauvegarde en cours...</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-4 h-4" />
+                <span>Erreur de sauvegarde</span>
+              </>
+            )}
           </motion.div>
         )}
-      </AnimatePresence>
 
-      {/* Error message */}
-      <AnimatePresence>
+        {/* Error Display */}
         {error && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="mb-4 p-3 rounded-lg bg-red-100 text-red-800 flex items-center justify-between"
+            className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg"
           >
-            <span className="text-sm">{error}</span>
-            <button onClick={clearError} className="text-red-600 hover:text-red-800">
-              ×
-            </button>
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="w-5 h-5" />
+              <span>{error}</span>
+            </div>
           </motion.div>
         )}
-      </AnimatePresence>
 
-      {/* Step Content */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-        <form onSubmit={handleSubmit(onSubmit)}>
+        {/* Form */}
+        <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-lg shadow-lg p-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -373,7 +401,7 @@ const QuoteForm: React.FC = () => {
           </AnimatePresence>
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
+          <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
             <Button
               type="button"
               variant="outline"
@@ -390,7 +418,7 @@ const QuoteForm: React.FC = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => downloadDevis(formData as DevisData)}
+                  onClick={() => downloadDevis(adaptFormDataToDevis(getCurrentStepData()))}
                   disabled={isDownloading}
                   className="flex items-center space-x-2"
                 >
@@ -401,7 +429,10 @@ const QuoteForm: React.FC = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => sendDevisEmail(formData as DevisData)}
+                  onClick={() => {
+                    const formData = getCurrentStepData();
+                    sendDevisEmail(adaptFormDataToDevis(formData), formData.email);
+                  }}
                   disabled={isSending}
                   className="flex items-center space-x-2"
                 >
@@ -477,15 +508,13 @@ const ClientInfoStep: React.FC<{
         required
       />
       
-      <div className="md:col-span-2">
-        <Input
-          label="Adresse complète *"
-          placeholder="123 Rue de la Paix"
-          {...register('adresse')}
-          error={errors.adresse?.message}
-          required
-        />
-      </div>
+      <Input
+        label="Adresse *"
+        placeholder="123 Rue de la Paix"
+        {...register('adresse')}
+        error={errors.adresse?.message}
+        required
+      />
       
       <Input
         label="Code postal *"
@@ -503,22 +532,6 @@ const ClientInfoStep: React.FC<{
         required
       />
     </div>
-
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
-      <div className="flex items-start">
-        <div className="flex-shrink-0">
-          <AlertCircle className="h-5 w-5 text-blue-400" />
-        </div>
-        <div className="ml-3">
-          <h3 className="text-sm font-medium text-blue-800">
-            Informations confidentielles
-          </h3>
-          <div className="mt-2 text-sm text-blue-700">
-            <p>Vos informations sont protégées et ne seront utilisées que pour établir votre devis.</p>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 );
 
@@ -528,91 +541,79 @@ const ServiceDetailsStep: React.FC<{
   setValue: any;
   watchedValues: any;
 }> = ({ register, errors, setValue, watchedValues }) => {
-  const { calculatePrice, getPriceBreakdown } = useDevisCalculator();
-  
-  // Calculer le prix en temps réel
-  const currentPrice = calculatePrice({
-    serviceDetails: {
-      typeNettoyage: watchedValues.typeNettoyage as any,
-      superficie: watchedValues.surface || 0,
-      frequence: watchedValues.frequence as any,
-      dateIntervention: new Date(),
-      horaires: ''
-    },
-    optionsSupplementaires: {
-      nettoyageVitres: false,
-      desinfection: false,
-      nettoyageFacades: false,
-      nettoyageParking: false,
-      nettoyageCarpettes: false,
-      traitementAntiCalcaire: false
-    }
-  });
+  const [selectedType, setSelectedType] = useState('');
 
-  const priceBreakdown = getPriceBreakdown({
-    serviceDetails: {
-      typeNettoyage: watchedValues.typeNettoyage as any,
-      superficie: watchedValues.surface || 0,
-      frequence: watchedValues.frequence as any,
-      dateIntervention: new Date(),
-      horaires: ''
-    },
-    optionsSupplementaires: {
-      nettoyageVitres: false,
-      desinfection: false,
-      nettoyageFacades: false,
-      nettoyageParking: false,
-      nettoyageCarpettes: false,
-      traitementAntiCalcaire: false
-    }
-  });
+  const handleTypeChange = (value: string) => {
+    setSelectedType(value);
+    setValue('typeNettoyage', value);
+  };
 
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <Calculator className="w-12 h-12 text-primary mx-auto mb-4" />
+        <MapPin className="w-12 h-12 text-primary mx-auto mb-4" />
         <h2 className="text-2xl font-bold text-gray-900">Détails du service</h2>
-        <p className="text-gray-600 mt-2">Sélectionnez le type de nettoyage et les paramètres</p>
+        <p className="text-gray-600 mt-2">Sélectionnez le type de nettoyage et les détails</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Type de nettoyage *
-            </label>
-            <select
-              {...register('typeNettoyage')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            >
-              <option value="">Sélectionnez un type</option>
-              {TYPES_NETTOYAGE.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-            {errors.typeNettoyage && (
-              <p className="text-red-500 text-sm mt-1">{errors.typeNettoyage.message}</p>
-            )}
+      <div className="space-y-6">
+        {/* Type de nettoyage */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Type de nettoyage *
+          </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {TYPES_NETTOYAGE.map((type) => (
+              <div
+                key={type.value}
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  selectedType === type.value
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+                onClick={() => handleTypeChange(type.value)}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className={`w-4 h-4 rounded-full border-2 ${
+                    selectedType === type.value
+                      ? 'border-blue-500 bg-blue-500'
+                      : 'border-gray-300'
+                  }`}>
+                    {selectedType === type.value && (
+                      <div className="w-2 h-2 bg-white rounded-full m-0.5" />
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-gray-900">{type.label}</h3>
+                    <p className="text-sm text-gray-600">Service de nettoyage {type.label.toLowerCase()}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
+          {errors.typeNettoyage && (
+            <p className="text-red-600 text-sm mt-1">{errors.typeNettoyage.message}</p>
+          )}
+        </div>
 
+        {/* Surface */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Input
-            label="Surface à nettoyer (m²) *"
+            label="Surface (m²) *"
             type="number"
             placeholder="100"
             {...register('surface', { valueAsNumber: true })}
             error={errors.surface?.message}
             required
           />
-
+          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
               Fréquence *
             </label>
             <select
               {...register('frequence')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="">Sélectionnez une fréquence</option>
               {FREQUENCES.map((freq) => (
@@ -622,61 +623,19 @@ const ServiceDetailsStep: React.FC<{
               ))}
             </select>
             {errors.frequence && (
-              <p className="text-red-500 text-sm mt-1">{errors.frequence.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Date d'intervention *
-            </label>
-            <input
-              type="date"
-              {...register('dateIntervention')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-            />
-            {errors.dateIntervention && (
-              <p className="text-red-500 text-sm mt-1">{errors.dateIntervention.message}</p>
+              <p className="text-red-600 text-sm mt-1">{errors.frequence.message}</p>
             )}
           </div>
         </div>
 
-        {/* Aperçu du prix */}
-        <div className="bg-gray-50 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Aperçu du prix</h3>
-          
-          {currentPrice > 0 ? (
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span>Prix de base :</span>
-                <span>{priceBreakdown.prixBase.toFixed(2)} €</span>
-              </div>
-              
-              {priceBreakdown.reduction > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Réduction fréquence :</span>
-                  <span>-{priceBreakdown.reduction.toFixed(2)} €</span>
-                </div>
-              )}
-              
-              <div className="border-t pt-3">
-                <div className="flex justify-between text-lg font-semibold">
-                  <span>Prix estimé :</span>
-                  <span className="text-primary">{currentPrice.toFixed(2)} €</span>
-                </div>
-              </div>
-              
-              <div className="text-xs text-gray-500 mt-2">
-                * Prix indicatif, devis définitif après validation
-              </div>
-            </div>
-          ) : (
-            <div className="text-center text-gray-500 py-8">
-              <Calculator className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-              <p>Remplissez les informations pour voir le prix</p>
-            </div>
-          )}
-        </div>
+        {/* Date d'intervention */}
+        <Input
+          label="Date d'intervention *"
+          type="date"
+          {...register('dateIntervention')}
+          error={errors.dateIntervention?.message}
+          required
+        />
       </div>
     </div>
   );
@@ -688,143 +647,59 @@ const AdditionalOptionsStep: React.FC<{
   setValue: any;
   watchedValues: any;
 }> = ({ register, errors, setValue, watchedValues }) => {
-  const { calculatePrice, getPriceBreakdown } = useDevisCalculator();
-  
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+
   const handleOptionChange = (optionValue: string, checked: boolean) => {
-    const currentOptions = Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires : [];
+    let newOptions = [...selectedOptions];
     if (checked) {
-      setValue('optionsSupplementaires', [...currentOptions, optionValue]);
+      newOptions.push(optionValue);
     } else {
-      setValue('optionsSupplementaires', currentOptions.filter((opt: string) => opt !== optionValue));
+      newOptions = newOptions.filter(opt => opt !== optionValue);
     }
+    setSelectedOptions(newOptions);
+    setValue('optionsSupplementaires', newOptions);
   };
-
-  // Calculer le prix avec les options
-  const currentPrice = calculatePrice({
-    serviceDetails: {
-      typeNettoyage: watchedValues.typeNettoyage as any,
-      superficie: watchedValues.surface || 0,
-      frequence: watchedValues.frequence as any,
-      dateIntervention: watchedValues.dateIntervention ? new Date(watchedValues.dateIntervention) : new Date(),
-      horaires: ''
-    },
-    optionsSupplementaires: {
-      nettoyageVitres: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageVitres') : false,
-      desinfection: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('desinfection') : false,
-      nettoyageFacades: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageFacades') : false,
-      nettoyageParking: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageParking') : false,
-      nettoyageCarpettes: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageCarpettes') : false,
-      traitementAntiCalcaire: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('traitementAntiCalcaire') : false
-    }
-  });
-
-  const priceBreakdown = getPriceBreakdown({
-    serviceDetails: {
-      typeNettoyage: watchedValues.typeNettoyage as any,
-      superficie: watchedValues.surface || 0,
-      frequence: watchedValues.frequence as any,
-      dateIntervention: watchedValues.dateIntervention ? new Date(watchedValues.dateIntervention) : new Date(),
-      horaires: ''
-    },
-    optionsSupplementaires: {
-      nettoyageVitres: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageVitres') : false,
-      desinfection: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('desinfection') : false,
-      nettoyageFacades: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageFacades') : false,
-      nettoyageParking: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageParking') : false,
-      nettoyageCarpettes: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('nettoyageCarpettes') : false,
-      traitementAntiCalcaire: Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes('traitementAntiCalcaire') : false
-    }
-  });
 
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <FileText className="w-12 h-12 text-primary mx-auto mb-4" />
+        <Calculator className="w-12 h-12 text-primary mx-auto mb-4" />
         <h2 className="text-2xl font-bold text-gray-900">Options supplémentaires</h2>
-        <p className="text-gray-600 mt-2">Sélectionnez les options supplémentaires (optionnel)</p>
+        <p className="text-gray-600 mt-2">Sélectionnez les services additionnels</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Options disponibles
+      <div className="space-y-4">
+        {OPTIONS_SUPPLEMENTAIRES.map((option) => (
+          <div
+            key={option.key}
+            className="flex items-center space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            <input
+              type="checkbox"
+              id={option.key}
+              checked={selectedOptions.includes(option.key)}
+              onChange={(e) => handleOptionChange(option.key, e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor={option.key} className="flex-1 cursor-pointer">
+              <div className="font-medium text-gray-900">{option.label}</div>
+              <div className="text-sm text-gray-600">{option.description}</div>
+              <div className="text-sm text-blue-600 font-medium">Prix selon devis</div>
             </label>
-            <div className="space-y-3">
-              {OPTIONS_SUPPLEMENTAIRES.map((option) => (
-                <label key={option.key} className="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors duration-200">
-                  <input
-                    type="checkbox"
-                    checked={Array.isArray(watchedValues.optionsSupplementaires) ? watchedValues.optionsSupplementaires.includes(option.key) : false}
-                    onChange={(e) => handleOptionChange(option.key, e.target.checked)}
-                    className="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded mt-1"
-                  />
-                                     <div className="flex-1">
-                     <div className="flex items-center justify-between">
-                       <span className="text-sm font-medium text-gray-900">{option.label}</span>
-                       <span className="text-xs text-gray-500">
-                         +{TARIFS[watchedValues.typeNettoyage as keyof typeof TARIFS]?.options[option.key as keyof typeof TARIFS.bureaux.options] || 0}€/m²
-                       </span>
-                     </div>
-                     <p className="text-xs text-gray-500 mt-1">{option.description}</p>
-                   </div>
-                </label>
-              ))}
-            </div>
           </div>
+        ))}
+      </div>
 
-          <Input
-            label="Commentaires (optionnel)"
-            type="textarea"
-            placeholder="Précisions particulières, horaires préférés, etc."
-            {...register('commentaires')}
-            error={errors.commentaires?.message}
-          />
-        </div>
-
-        {/* Aperçu du prix avec options */}
-        <div className="bg-gray-50 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Aperçu du prix</h3>
-          
-          {currentPrice > 0 ? (
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span>Prix de base :</span>
-                <span>{priceBreakdown.prixBase.toFixed(2)} €</span>
-              </div>
-              
-              {priceBreakdown.reduction > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Réduction fréquence :</span>
-                  <span>-{priceBreakdown.reduction.toFixed(2)} €</span>
-                </div>
-              )}
-              
-              {priceBreakdown.options > 0 && (
-                <div className="flex justify-between text-sm text-blue-600">
-                  <span>Options supplémentaires :</span>
-                  <span>+{priceBreakdown.options.toFixed(2)} €</span>
-                </div>
-              )}
-              
-              <div className="border-t pt-3">
-                <div className="flex justify-between text-lg font-semibold">
-                  <span>Prix total :</span>
-                  <span className="text-primary">{currentPrice.toFixed(2)} €</span>
-                </div>
-              </div>
-              
-              <div className="text-xs text-gray-500 mt-2">
-                * Prix indicatif, devis définitif après validation
-              </div>
-            </div>
-          ) : (
-            <div className="text-center text-gray-500 py-8">
-              <Calculator className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-              <p>Remplissez les informations pour voir le prix</p>
-            </div>
-          )}
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Commentaires additionnels
+        </label>
+        <textarea
+          {...register('commentaires')}
+          rows={4}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          placeholder="Précisions particulières, horaires spécifiques, etc."
+        />
       </div>
     </div>
   );
@@ -835,137 +710,117 @@ const SignatureStep: React.FC<{
   errors: any;
   setValue: any;
 }> = ({ register, errors, setValue }) => {
-  const [signature, setSignature] = useState('');
   const [isDrawing, setIsDrawing] = useState(false);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const contextRef = React.useRef<CanvasRenderingContext2D | null>(null);
 
   const handleSignatureChange = (value: string) => {
-    setSignature(value);
     setValue('signature', value);
   };
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDrawing(true);
     const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        const rect = canvas.getBoundingClientRect();
-        ctx.beginPath();
-        ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-      }
-    }
+    if (!canvas) return;
+    
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    
+    contextRef.current = context;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    context.beginPath();
+    context.moveTo(x, y);
+    context.lineWidth = 2;
+    context.strokeStyle = '#1f2937';
+    context.lineCap = 'round';
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+    if (!isDrawing || !contextRef.current) return;
+    
     const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        const rect = canvas.getBoundingClientRect();
-        ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-        ctx.stroke();
-      }
-    }
+    if (!canvas) return;
+    
+    const context = contextRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    context.lineTo(x, y);
+    context.stroke();
   };
 
   const stopDrawing = () => {
     setIsDrawing(false);
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const signatureData = canvas.toDataURL();
-      setSignature(signatureData);
-      setValue('signature', signatureData);
+    if (contextRef.current) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const signatureData = canvas.toDataURL();
+        handleSignatureChange(signatureData);
+      }
     }
   };
 
   const clearSignature = () => {
     const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        setSignature('');
-        setValue('signature', '');
-      }
-    }
+    if (!canvas) return;
+    
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    handleSignatureChange('');
   };
-
-  React.useEffect(() => {
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.strokeStyle = '#0ea5e9';
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-      }
-    }
-  }, []);
 
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <CreditCard className="w-12 h-12 text-primary mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-gray-900">Signature électronique</h2>
-        <p className="text-gray-600 mt-2">Signez pour valider votre demande de devis</p>
+        <FileText className="w-12 h-12 text-primary mx-auto mb-4" />
+        <h2 className="text-2xl font-bold text-gray-900">Signature</h2>
+        <p className="text-gray-600 mt-2">Signez pour valider votre demande</p>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Signature *
           </label>
-          
-          <div className="border border-gray-300 rounded-lg p-4">
-            <div className="mb-4">
-              <canvas
-                ref={canvasRef}
-                width={400}
-                height={200}
-                className="border border-gray-300 rounded-md cursor-crosshair"
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-              />
-            </div>
-            
-            <div className="flex justify-between items-center">
+          <div className="border-2 border-gray-300 rounded-lg p-4">
+            <canvas
+              ref={canvasRef}
+              width={400}
+              height={200}
+              className="border border-gray-200 rounded cursor-crosshair"
+              onMouseDown={startDrawing}
+              onMouseMove={draw}
+              onMouseUp={stopDrawing}
+              onMouseLeave={stopDrawing}
+            />
+            <div className="mt-2 flex space-x-2">
               <button
                 type="button"
                 onClick={clearSignature}
-                className="text-sm text-gray-500 hover:text-gray-700 underline"
+                className="px-3 py-1 text-sm text-red-600 hover:text-red-800"
               >
-                Effacer la signature
+                Effacer
               </button>
-              
-              <div className="text-xs text-gray-500">
-                Cliquez et dessinez votre signature
-              </div>
             </div>
           </div>
-          
           {errors.signature && (
-            <p className="text-red-500 text-sm mt-1">{errors.signature.message}</p>
+            <p className="text-red-600 text-sm mt-1">{errors.signature.message}</p>
           )}
         </div>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-blue-400" />
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">
-                Signature électronique
-              </h3>
-              <div className="mt-2 text-sm text-blue-700">
-                <p>En signant ce formulaire, vous acceptez que vos données soient traitées dans le cadre de votre demande de devis.</p>
-              </div>
-            </div>
-          </div>
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h3 className="font-medium text-blue-900 mb-2">Informations importantes</h3>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>• Votre signature confirme votre accord avec les conditions</li>
+            <li>• Le devis sera généré et envoyé dans les 24h</li>
+            <li>• Vous recevrez une confirmation par email</li>
+          </ul>
         </div>
       </div>
     </div>
@@ -978,175 +833,78 @@ const ConfirmationStep: React.FC<{
   register: any;
   errors: any;
 }> = ({ formData, currentPrice, register, errors }) => {
-  const { getPriceBreakdown } = useDevisCalculator();
-  
-  const priceBreakdown = React.useMemo(() => {
-    const breakdown = getPriceBreakdown({
-      serviceDetails: {
-        typeNettoyage: formData.serviceDetails?.typeNettoyage || 'bureaux',
-        superficie: formData.serviceDetails?.superficie || 0,
-        frequence: formData.serviceDetails?.frequence || 'ponctuel',
-        dateIntervention: new Date(),
-        horaires: ''
-      },
-      optionsSupplementaires: formData.optionsSupplementaires || {
-        nettoyageVitres: false,
-        desinfection: false,
-        nettoyageFacades: false,
-        nettoyageParking: false,
-        nettoyageCarpettes: false,
-        traitementAntiCalcaire: false
-      }
-    });
-    
-    return breakdown;
-  }, [formData, getPriceBreakdown]);
+  const priceBreakdown = [
+    { label: 'Service de base', amount: currentPrice * 0.8 },
+    { label: 'Options supplémentaires', amount: currentPrice * 0.1 },
+    { label: 'TVA (20%)', amount: currentPrice * 0.2 },
+    { label: 'Total TTC', amount: currentPrice * 1.2, isTotal: true }
+  ];
 
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <Check className="w-12 h-12 text-primary mx-auto mb-4" />
+        <Check className="w-12 h-12 text-green-500 mx-auto mb-4" />
         <h2 className="text-2xl font-bold text-gray-900">Confirmation</h2>
-        <p className="text-gray-600 mt-2">Vérifiez vos informations avant l'envoi</p>
+        <p className="text-gray-600 mt-2">Vérifiez les informations avant envoi</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <User className="w-5 h-5 mr-2 text-primary" />
-              Informations client
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Nom :</span>
-                <span className="font-medium">{formData.clientInfo?.nom}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Email :</span>
-                <span className="font-medium">{formData.clientInfo?.email}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Téléphone :</span>
-                <span className="font-medium">{formData.clientInfo?.telephone}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Adresse :</span>
-                <span className="font-medium">{formData.clientInfo?.adresse}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Code postal :</span>
-                <span className="font-medium">{formData.clientInfo?.codePostal}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Ville :</span>
-                <span className="font-medium">{formData.clientInfo?.ville}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <Calculator className="w-5 h-5 mr-2 text-primary" />
-              Détails du service
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Type :</span>
-                <span className="font-medium">{TYPES_NETTOYAGE.find(t => t.value === formData.serviceDetails?.typeNettoyage)?.label}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Surface :</span>
-                <span className="font-medium">{formData.serviceDetails?.superficie} m²</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Fréquence :</span>
-                <span className="font-medium">{FREQUENCES.find(f => f.value === formData.serviceDetails?.frequence)?.label}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Date d'intervention :</span>
-                <span className="font-medium">{formData.serviceDetails?.dateIntervention?.toLocaleDateString()}</span>
-              </div>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Informations client */}
+        <div className="bg-gray-50 p-6 rounded-lg">
+          <h3 className="font-semibold text-gray-900 mb-4">Informations client</h3>
+          <div className="space-y-2 text-sm">
+            <p><span className="font-medium">Nom:</span> {formData.nom}</p>
+            <p><span className="font-medium">Email:</span> {formData.email}</p>
+            <p><span className="font-medium">Téléphone:</span> {formData.telephone}</p>
+            <p><span className="font-medium">Adresse:</span> {formData.adresse}</p>
+            <p><span className="font-medium">Ville:</span> {formData.ville} {formData.codePostal}</p>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <FileText className="w-5 h-5 mr-2 text-primary" />
-              Détail du prix
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span>Prix de base :</span>
-                <span>{priceBreakdown.prixBase.toFixed(2)} €</span>
-              </div>
-              
-              {priceBreakdown.reduction > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Réduction fréquence :</span>
-                  <span>-{priceBreakdown.reduction.toFixed(2)} €</span>
-                </div>
-              )}
-              
-              {priceBreakdown.options > 0 && (
-                <div className="flex justify-between text-sm text-blue-600">
-                  <span>Options supplémentaires :</span>
-                  <span>+{priceBreakdown.options.toFixed(2)} €</span>
-                </div>
-              )}
-              
-              <div className="border-t pt-3">
-                <div className="flex justify-between text-lg font-semibold">
-                  <span>Total</span>
-                  <span className="text-primary">{currentPrice.toFixed(2)} €</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <AlertCircle className="h-5 w-5 text-blue-400" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">
-                  Devis gratuit
-                </h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>Ce devis est gratuit et sans engagement. Vous recevrez une réponse sous 24h.</p>
-                </div>
-              </div>
-            </div>
+        {/* Détails du service */}
+        <div className="bg-gray-50 p-6 rounded-lg">
+          <h3 className="font-semibold text-gray-900 mb-4">Détails du service</h3>
+          <div className="space-y-2 text-sm">
+            <p><span className="font-medium">Type:</span> {TYPES_NETTOYAGE.find(t => t.value === formData.typeNettoyage)?.label}</p>
+            <p><span className="font-medium">Surface:</span> {formData.surface} m²</p>
+            <p><span className="font-medium">Fréquence:</span> {FREQUENCES.find(f => f.value === formData.frequence)?.label}</p>
+            <p><span className="font-medium">Date:</span> {formData.dateIntervention}</p>
           </div>
         </div>
       </div>
 
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-        <label className="flex items-start space-x-3">
+      {/* Détail du prix */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h3 className="font-semibold text-gray-900 mb-4">Détail du prix</h3>
+        <div className="space-y-2">
+          {priceBreakdown.map((item, index) => (
+            <div key={index} className={`flex justify-between py-2 ${
+              item.isTotal ? 'border-t border-gray-200 pt-4 font-semibold text-lg' : ''
+            }`}>
+              <span>{item.label}</span>
+              <span>{item.amount.toFixed(2)}€</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Conditions */}
+      <div className="bg-yellow-50 p-4 rounded-lg">
+        <div className="flex items-start space-x-3">
           <input
             type="checkbox"
             {...register('conditionsAcceptees')}
-            className="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded mt-1"
+            className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
           />
-          <div className="text-sm">
-            <span className="text-gray-900">
-              J'accepte les{' '}
-              <a href="#" className="text-primary hover:underline">
-                conditions générales de vente
-              </a>
-              {' '}et la{' '}
-              <a href="#" className="text-primary hover:underline">
-                politique de confidentialité
-              </a>
-            </span>
+          <div>
+            <label className="text-sm text-gray-900">
+              J'accepte les conditions générales et la politique de confidentialité *
+            </label>
             {errors.conditionsAcceptees && (
-              <p className="text-red-500 text-sm mt-1">{errors.conditionsAcceptees.message}</p>
+              <p className="text-red-600 text-sm mt-1">{errors.conditionsAcceptees.message}</p>
             )}
           </div>
-        </label>
+        </div>
       </div>
     </div>
   );

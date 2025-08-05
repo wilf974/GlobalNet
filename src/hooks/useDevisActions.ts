@@ -17,6 +17,10 @@ interface UseDevisActionsReturn {
   calculateDevis: (devis: Devis) => Devis;
   calculateCA: (devisList: Devis[]) => number;
   
+  // Actions d'export et envoi
+  downloadDevis: (devis: Devis) => Promise<void>;
+  sendDevisEmail: (devis: Devis, email: string) => Promise<void>;
+  
   // Actions de notification
   addNotification: (devisId: string, notification: Omit<NotificationItem, 'id' | 'date'>) => Promise<void>;
   markNotificationAsRead: (devisId: string, notificationId: string) => Promise<void>;
@@ -25,12 +29,17 @@ interface UseDevisActionsReturn {
   loading: boolean;
   error: string | null;
   success: string | null;
+  isDownloading: boolean;
+  isSending: boolean;
+  clearError: () => void;
 }
 
 export const useDevisActions = (): UseDevisActionsReturn => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   // Fonction utilitaire pour créer un step de workflow
   const createWorkflowStep = useCallback((
@@ -364,6 +373,55 @@ export const useDevisActions = (): UseDevisActionsReturn => {
     }
   }, []);
 
+  // Télécharger un devis
+  const downloadDevis = useCallback(async (devis: Devis): Promise<void> => {
+    setIsDownloading(true);
+    setError(null);
+    
+    try {
+      // Simulation de téléchargement
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Ici on pourrait générer un PDF et le télécharger
+      console.log('Téléchargement du devis:', devis.id);
+      
+      setSuccess('Devis téléchargé avec succès');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors du téléchargement';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsDownloading(false);
+    }
+  }, []);
+
+  // Envoyer un devis par email
+  const sendDevisEmail = useCallback(async (devis: Devis, email: string): Promise<void> => {
+    setIsSending(true);
+    setError(null);
+    
+    try {
+      // Simulation d'envoi d'email
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('Envoi du devis par email:', devis.id, 'à', email);
+      
+      setSuccess('Devis envoyé avec succès');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erreur lors de l\'envoi';
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsSending(false);
+    }
+  }, []);
+
+  // Effacer les erreurs
+  const clearError = useCallback(() => {
+    setError(null);
+    setSuccess(null);
+  }, []);
+
   return {
     createDevis,
     updateDevis,
@@ -374,10 +432,15 @@ export const useDevisActions = (): UseDevisActionsReturn => {
     cancelDevis,
     calculateDevis,
     calculateCA,
+    downloadDevis,
+    sendDevisEmail,
     addNotification,
     markNotificationAsRead,
     loading,
     error,
     success,
+    isDownloading,
+    isSending,
+    clearError,
   };
 }; 

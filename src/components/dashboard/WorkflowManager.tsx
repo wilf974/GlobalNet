@@ -175,7 +175,7 @@ const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getStepColor(status)}`}>
                       {status === 'completed' ? (
                         <CheckCircle size={16} className="text-white" />
-                      ) : status === 'rejected' ? (
+                      ) : (status as string) === 'rejected' ? (
                         <XCircle size={16} className="text-white" />
                       ) : (
                         <Clock size={16} className="text-white" />
@@ -235,7 +235,7 @@ const WorkflowManager: React.FC<WorkflowManagerProps> = ({
                     
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       status === 'completed' ? 'bg-green-100 text-green-800' :
-                      status === 'rejected' ? 'bg-red-100 text-red-800' :
+                      (status as string) === 'rejected' ? 'bg-red-100 text-red-800' :
                       status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>

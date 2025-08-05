@@ -25,13 +25,13 @@ const LazyLoad: React.FC<LazyLoadProps> = ({
   delay = 0,
   once = true,
 }) => {
-  const [isLoaded, setIsLoaded] = useState(false)
-  const { ref, isVisible, hasLoaded } = useLazyLoad({ threshold, rootMargin, once })
+  const [isComponentLoaded, setIsComponentLoaded] = useState(false)
+  const { ref, isVisible, isLoaded } = useLazyLoad({ threshold, rootMargin })
 
   useEffect(() => {
     if (isVisible) {
       const timer = setTimeout(() => {
-        setIsLoaded(true)
+        setIsComponentLoaded(true)
       }, delay)
 
       return () => clearTimeout(timer)
@@ -67,9 +67,9 @@ const LazyLoad: React.FC<LazyLoadProps> = ({
   }
 
   return (
-    <div ref={ref} className={className}>
+    <div ref={ref as React.RefObject<HTMLDivElement>} className={className}>
       <AnimatePresence>
-        {!isLoaded && (
+        {!isComponentLoaded && (
           <motion.div
             key="fallback"
             initial={{ opacity: 1 }}
@@ -81,7 +81,7 @@ const LazyLoad: React.FC<LazyLoadProps> = ({
         )}
       </AnimatePresence>
 
-      {isLoaded && (
+      {isComponentLoaded && (
         <motion.div
           key="content"
           initial={animations[animation].initial}

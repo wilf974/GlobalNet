@@ -54,7 +54,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   const [imageSrc, setImageSrc] = useState(src);
 
   // Lazy loading avec hook personnalisé
-  const { ref, isVisible: isLazyVisible, retry } = useLazyImage(src, {
+  const { ref, src: lazySrc, isLoaded: lazyLoaded, isError: lazyError, retry } = useLazyImage(src, {
     threshold: 0.1,
     rootMargin: '50px',
     cache: true,
@@ -113,8 +113,9 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
     onLoad?.();
   }, [onLoad]);
 
-  const handleImageError = useCallback((error: Error) => {
-    console.error('Erreur de chargement image:', error);
+  const handleImageError = useCallback((event: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const error = new Error('Erreur de chargement image');
+    console.error(error);
     setIsError(true);
     setIsLoaded(false);
     
@@ -130,11 +131,11 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   // Gérer la visibilité
   useEffect(() => {
     if (lazy) {
-      setIsVisible(isLazyVisible);
+      setIsVisible(lazyLoaded);
     } else {
       setIsVisible(true);
     }
-  }, [lazy, isLazyVisible]);
+  }, [lazy, lazyLoaded]);
 
   // Optimiser l'URL quand l'image devient visible
   useEffect(() => {
