@@ -1,0 +1,475 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ORGANISATION & MULTI-TENANT
+// ============================================================
+
+model Organization {
+  id            String     @id @default(cuid())
+  name          String
+  slug          String     @unique
+  logo          String?
+  domain        String?    @unique
+  branding      Json?      // { primaryColor, secondaryColor, logo, favicon }
+  description   String?
+  status        String     @default("active") // active, inactive, suspended
+  plan          String     @default("free") // free, starter, pro, enterprise
+
+  // Relationships
+  users         User[]
+  members       OrganizationMember[]
+  clients       Client[]
+  devis         Devis[]
+  factures      Facture[]
+  interventions Intervention[]
+  subscriptions Subscription[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+  // Metadata
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([slug])
+  @@index([status])
+}
+
+// ============================================================
+// AUTHENTIFICATION & UTILISATEURS
+// ============================================================
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  emailVerified    DateTime?
+  name             String?
+  password         String?   // For email/password auth
+  image            String?
+  role             Role      @default(USER)
+  status           String    @default("active") // active, inactive, suspended
+
+  // Multi-tenant
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // NextAuth relations
+  accounts         Account[]
+  sessions         Session[]
+
+  // Content
+  devisCreated     Devis[]    @relation("CreatedBy")
+  devisUpdated     Devis[]    @relation("UpdatedBy")
+  factures         Facture[]  @relation("CreatedBy")
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+
+  // Metadata
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  lastLogin        DateTime?
+
+  @@index([organizationId])
+  @@index([email])
+  @@index([status])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MANAGER
+  USER
+  VIEWER
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  email          String
+  name           String?
+  role           Role     @default(USER)
+  status         String   @default("pending") // pending, active, inactive
+  invitedBy      String?  // User ID who invited
+  invitedAt      DateTime @default(now())
+  acceptedAt     DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([status])
+}
+
+// ============================================================
+// MÉTIER: CLIENTS
+// ============================================================
+
+model Client {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name            String
+  email           String?
+  phone           String?
+  website         String?
+  address         String?
+  city            String?
+  zipCode         String?
+  country         String?
+
+  type            String   @default("company") // company, individual
+  siretSiren      String?
+  status          String   @default("prospect") // prospect, active, inactive, archived
+  source          String?  // website, referral, cold_call, etc.
+
+  notes           String?
+  tags            String[] // For categorization
+
+  // Preferences
+  language        String   @default("fr")
+  currency        String   @default("EUR")
+
+  // Relationships
+  devis           Devis[]
+  factures        Facture[]
+  interventions   Intervention[]
+
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([status])
+  @@index([name])
+}
+
+// ============================================================
+// MÉTIER: DEVIS (QUOTES)
+// ============================================================
+
+model Devis {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId        String?
+  client          Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  number          String
+  status          String   @default("draft") // draft, sent, viewed, accepted, rejected, invoiced, archived
+
+  // Services
+  items           DevisItem[]
+
+  // Pricing
+  subtotal        Float    @default(0)
+  discount        Float    @default(0)
+  discountType    String   @default("fixed") // fixed, percent
+  taxRate         Float    @default(20)
+  taxAmount       Float    @default(0)
+  total           Float    @default(0)
+
+  // Dates
+  devisDate       DateTime @default(now())
+  validUntil      DateTime?
+  acceptedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  // Signature
+  signatureData   String?  // Base64 or URL
+  signedAt        DateTime?
+
+  // Relations
+  createdById     String
+  createdBy       User     @relation("CreatedBy", fields: [createdById], references: [id])
+  updatedById     String?
+  updatedBy       User?    @relation("UpdatedBy", fields: [updatedById], references: [id])
+
+  facture         Facture?
+  interventions   Intervention[]
+
+  // Notes & attachments
+  description     String?
+  terms           String?
+  internalNotes   String?
+  attachments     String[] // URLs
+
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([organizationId, number])
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([status])
+  @@index([number])
+}
+
+model DevisItem {
+  id          String   @id @default(cuid())
+  devisId     String
+  devis       Devis    @relation(fields: [devisId], references: [id], onDelete: Cascade)
+
+  description String
+  quantity    Float    @default(1)
+  unitPrice   Float    @default(0)
+  total       Float    @default(0)
+
+  createdAt   DateTime @default(now())
+
+  @@index([devisId])
+}
+
+// ============================================================
+// MÉTIER: FACTURES (INVOICES)
+// ============================================================
+
+model Facture {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  devisId         String?
+  devis           Devis?   @relation(fields: [devisId], references: [id], onDelete: SetNull)
+
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  number          String
+  status          String   @default("draft") // draft, sent, viewed, paid, overdue, canceled, archived
+
+  // Amounts
+  subtotal        Float    @default(0)
+  discount        Float    @default(0)
+  discountType    String   @default("fixed")
+  taxRate         Float    @default(20)
+  taxAmount       Float    @default(0)
+  total           Float    @default(0)
+
+  // Payment
+  amountPaid      Float    @default(0)
+  paymentStatus   String   @default("unpaid") // unpaid, partial, paid, refunded
+  paymentMethod   String?  // stripe, bank_transfer, cash, check
+  paymentRef      String?  // Stripe reference
+
+  // Dates
+  invoiceDate     DateTime @default(now())
+  dueDate         DateTime?
+  sentAt          DateTime?
+  paidAt          DateTime?
+
+  // Relations
+  createdById     String
+  createdBy       User     @relation("CreatedBy", fields: [createdById], references: [id])
+
+  // Content
+  description     String?
+  terms           String?
+  internalNotes   String?
+  attachments     String[]
+
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([organizationId, number])
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+// ============================================================
+// MÉTIER: INTERVENTIONS (SERVICES)
+// ============================================================
+
+model Intervention {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  devisId         String?
+  devis           Devis?   @relation(fields: [devisId], references: [id], onDelete: SetNull)
+
+  title           String
+  description     String?
+  status          String   @default("scheduled") // scheduled, in_progress, completed, canceled
+  priority        String   @default("normal") // low, normal, high, urgent
+
+  // Dates & Duration
+  scheduledDate   DateTime
+  startTime       DateTime?
+  endTime         DateTime?
+  duration        Int?     // minutes
+
+  // Location
+  address         String?
+
+  // Team
+  assignedTo      String[]  // User IDs
+
+  // Notes
+  notes           String?
+  photos          String[]
+
+  // Metadata
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([status])
+  @@index([scheduledDate])
+}
+
+// ============================================================
+// BILLING & SUBSCRIPTIONS
+// ============================================================
+
+model Subscription {
+  id              String   @id @default(cuid())
+  organizationId  String   @unique
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  plan            String   @default("free") // free, starter, pro, enterprise
+  status          String   @default("active") // active, canceled, past_due
+
+  stripeCustomerId String?
+  stripeSubscriptionId String?
+
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  canceledAt         DateTime?
+
+  // Pricing
+  price           Float    @default(0)
+  currency        String   @default("EUR")
+  billingCycle    String   @default("monthly") // monthly, yearly
+
+  // Features
+  features        Json?    // { maxDevis, maxUsers, etc }
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+}
+
+// ============================================================
+// AUDIT & COMPLIANCE
+// ============================================================
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action          String   // user.created, devis.updated, facture.paid, etc
+  entity          String   // User, Devis, Facture, etc
+  entityId        String?  // ID of the affected entity
+
+  oldValues       Json?    // Previous values for updates
+  newValues       Json?    // New values
+  changes         String?
+
+  ipAddress       String?
+  userAgent       String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id              String   @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type            String   // devis.created, facture.paid, invitation, etc
+  title           String
+  message         String
+
+  data            Json?    // Additional context
+
+  read            Boolean  @default(false)
+  readAt          DateTime?
+
+  actionUrl       String?
+
+  createdAt       DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}

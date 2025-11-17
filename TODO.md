@@ -1,14 +1,42 @@
 # TODO - Refonte Multi-Tenant SaaS GlobalNet
 
-**Date de création:** 2025-11-03  
-**Durée estimée:** 2-3 mois  
+**Date de création:** 2025-11-03
+**Durée estimée:** 2-3 mois
+**Dernière mise à jour:** 2025-11-17
 **Objectif:** Transformer GlobalNet en plateforme SaaS multi-tenant scalable avec IA, temps réel, et fonctionnalités avancées
+
+---
+
+## 🚀 Démarrage Rapide - Checklist Initiale
+
+### Prérequis Système
+- [ ] Node.js 18+ installé (`node -v`)
+- [ ] npm 9+ installé (`npm -v`)
+- [ ] PostgreSQL 14+ (local ou cloud)
+- [ ] Git configuré (`git config --list`)
+- [ ] Editor/IDE configuré (VSCode + Prettier + ESLint)
+
+### Configuration Initiale du Projet
+- [ ] Installer dépendances: `npm install`
+- [ ] Initialiser Prisma: `npx prisma init` (si non fait)
+- [ ] Créer `.env.local` à partir de `.env.example`
+- [ ] Configurer `DATABASE_URL` pour PostgreSQL
+- [ ] Créer la base de données: `createdb cleaning_app`
+- [ ] Générer client Prisma: `npx prisma generate`
+- [ ] Lancer migrations: `npx prisma migrate dev --name init`
+- [ ] Tester le serveur dev: `npm run dev`
+
+### Configuration Git Branches
+- [ ] Feature branch utilisée: `claude/create-project-todo-011gWtrErv5zvCqR9BEA4CX1`
+- [ ] Commits avec messages clairs et atomiques
+- [ ] Push après chaque milestone complété
 
 ---
 
 ## 📊 Vue d'ensemble
 
 ### Progression Globale
+- [ ] Phase 0: Prérequis & Setup (1 semaine) ⏳
 - [ ] Phase 1: Migration Base de Données (3 semaines)
 - [ ] Phase 2: Authentification & Multi-Tenant (2 semaines)
 - [ ] Phase 3: Intégration IA (2 semaines)
@@ -21,6 +49,99 @@
 - [ ] Phase 10: API & Intégrations (1 semaine)
 - [ ] Phase 11: Mobile & Tests (2 semaines)
 - [ ] Phase 12: Déploiement & Documentation (1 semaine)
+
+---
+
+## 🏗️ Architecture & Décisions Techniques
+
+### Décisions Clés
+1. **Multi-Tenant Strategy**: Row-Level Tenant Isolation via `organizationId`
+2. **Auth**: NextAuth.js + JWT + OAuth Google
+3. **API**: REST + Future GraphQL
+4. **Real-time**: Pusher (vs Socket.io)
+5. **File Storage**: Vercel Blob / Cloudinary
+6. **Payments**: Stripe (vs Paddle)
+7. **Email**: Resend / SendGrid
+8. **Monitoring**: Sentry + Vercel Analytics
+9. **Deployment**: Vercel (vs Railway/Render)
+
+### Database Schema Principles
+- Toujours vérifier `organizationId` dans les queries
+- Soft delete pour audit trail
+- Timestamps (createdAt, updatedAt) obligatoires
+- Indexes sur `organizationId`, `userId`, statuts
+- Relations explicites avec cascade rules
+
+---
+
+## 🔧 Scripts NPM à Ajouter
+
+Ajouter à `package.json`:
+```json
+{
+  "scripts": {
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:reset": "prisma migrate reset",
+    "db:studio": "prisma studio",
+    "type-check": "tsc --noEmit",
+    "lint:fix": "eslint src --fix",
+    "test:all": "npm run type-check && npm run lint && npm run test",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
+    "dev:monitor": "npm run dev & npm run db:studio"
+  }
+}
+```
+
+---
+
+## 📋 Blockers & Problèmes Connus
+
+| Problème | Impact | Solution |
+|----------|--------|----------|
+| Prisma non initialisé | BLOQUANT | Initialiser prisma avec `npx prisma init` |
+| .env.local manquant | BLOQUANT | Créer fichier avec DATABASE_URL |
+| NextAuth pas configuré | Phase 2 | Sera fait dans Phase 2 |
+| Pas de tests E2E | Important | Playwright à ajouter Phase 11 |
+
+---
+
+## Phase 0: Prérequis & Initialisation (ACTUEL)
+
+**Durée:** 1-2 jours
+**Priorité:** CRITIQUE
+**Status:** 🔴 EN COURS
+
+### 0.1 Initialisation Prisma et Schéma
+
+- [x] Prisma client déjà installé (@prisma/client ^5.6.0)
+- [ ] Exécuter `npx prisma init`
+- [ ] Vérifier fichiers créés:
+  - [ ] `prisma/schema.prisma`
+  - [ ] `.env` avec DATABASE_URL
+- [ ] Créer `.env.local` si nécessaire:
+  ```env
+  DATABASE_URL="postgresql://user:password@localhost:5432/cleaning_app"
+  NEXTAUTH_SECRET="your-secret-key-here"
+  NEXTAUTH_URL="http://localhost:3000"
+  ```
+- [ ] Configurer PostgreSQL (local ou cloud):
+  - [ ] Créer DB `cleaning_app`
+  - [ ] Vérifier connection string
+  - [ ] Tester connexion: `psql $DATABASE_URL -c "SELECT 1"`
+
+### 0.2 Scripts NPM & Configuration
+
+- [ ] Mettre à jour `package.json` avec scripts db
+- [ ] Vérifier TypeScript config (`tsconfig.json`)
+- [ ] Vérifier ESLint config
+- [ ] Ajouter fichier `.prettierrc` (optionnel)
+
+### ✅ Critères Validation Phase 0
+- [ ] `npx prisma generate` sans erreur
+- [ ] Connexion DB testée
+- [ ] `.env.local` configuré correctement
 
 ---
 

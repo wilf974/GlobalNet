@@ -15,7 +15,17 @@
     "analyze": "ANALYZE=true npm run build",
     "analyze:win": "set ANALYZE=true && npm run build",
     "build:analyze": "cross-env ANALYZE=true npm run build",
-    "lighthouse": "lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html"
+    "lighthouse": "lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:reset": "prisma migrate reset --force",
+    "db:studio": "prisma studio",
+    "db:generate": "prisma generate",
+    "lint:fix": "eslint src --fix",
+    "test:all": "npm run type-check && npm run lint && npm run test",
+    "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
+    "dev:monitor": "concurrently \"npm run dev\" \"npm run db:studio\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.0",
@@ -61,12 +71,17 @@
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^8.2.2",
     "cross-env": "^10.0.0",
     "eslint": "^8.0.0",
     "eslint-config-next": "14.0.0",
     "jsdom": "^26.1.0",
     "lighthouse": "^12.8.0",
+    "ts-node": "^10.9.2",
     "vitest": "^3.2.4",
     "webpack-bundle-analyzer": "^4.10.2"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }
